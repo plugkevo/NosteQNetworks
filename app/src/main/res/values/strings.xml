@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">Nosteq</string>
+    <string name="title_activity_login_activityy">LoginActivityy</string>
+    <string name="title_activity_login">LoginActivity</string>
+    <string name="title_activity_home_screen">HomeScreen</string>
+    <string name="title_activity_dashboard_screen">DashboardScreen</string>
+    <string name="title_activity_account_screen">AccountScreen</string>
+    <string name="title_activity_billing_screen">BillingScreen</string>
+    <string name="title_activity_packages_screens">PackagesScreens</string>
+    <string name="title_activity_router_screen">RouterScreen</string>
+    <string name="title_activity_support_screen">SupportScreen</string>
+    <string name="title_activity_login_screen">LoginScreen</string>
+</resources>

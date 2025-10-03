@@ -11,8 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
 
-@Preview(showBackground=true)
+
 @Composable
 fun AccountScreen() {
     Column(
@@ -125,5 +126,13 @@ fun NotificationToggle(label: String, checked: Boolean) {
             checked = checked,
             onCheckedChange = { /* TODO: Update notification preference */ }
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AccountScreenPreview() {
+    NosteqTheme {
+        AccountScreen()
     }
 }

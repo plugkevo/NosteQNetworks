@@ -24,10 +24,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Preview(showBackground=true)
+
 @Composable
 fun LoginScreen() {
     var username by remember { mutableStateOf("") }
@@ -214,5 +215,12 @@ fun LoginScreen() {
                 Text("Sign Up")
             }
         }
+    }
+}
+@Preview(showBackground = true)
+@Composable
+fun LoginScreenPreview() {
+    NosteqTheme {
+        LoginScreen()
     }
 }

@@ -60,11 +60,12 @@ fun HomeScreen() {
             startDestination = "dashboard",
             modifier = Modifier.padding(paddingValues)
         ) {
-            composable("dashboard") { DashboardScreen() }
+            composable("dashboard") { DashboardScreen(navController) }
             composable("packages") { PackagesScreen() }
             composable("account") { AccountScreen() }
             composable("billing") { BillingScreen() }
             composable("support") { SupportScreen() }
+            composable("router"){RouterScreen() }
         }
     }
 }

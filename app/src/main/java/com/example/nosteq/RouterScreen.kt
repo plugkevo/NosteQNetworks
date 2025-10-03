@@ -14,8 +14,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
 
-@Preview(showBackground=true)
+
 @Composable
 fun RouterScreen() {
     Column(
@@ -223,5 +224,13 @@ fun DeviceRow(name: String, ip: String, type: String) {
         }
 
         Badge { Text(type) }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun RouterScreenPreview() {
+    NosteqTheme {
+        RouterScreen()
     }
 }

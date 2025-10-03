@@ -13,10 +13,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.rememberNavController
+import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
 
-@Preview(showBackground = true)
+
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -82,12 +86,30 @@ fun DashboardScreen() {
             QuickActionCard(
                 icon = Icons.Filled.List,
                 title = "Packages",
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    navController.navigate("packages") {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
             )
             QuickActionCard(
                 icon = Icons.Filled.AccountBox,
                 title = "Billing",
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    navController.navigate("Billing") {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
             )
         }
 
@@ -98,12 +120,30 @@ fun DashboardScreen() {
             QuickActionCard(
                 icon = Icons.Filled.Router,
                 title = "Router",
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    navController.navigate("router") {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
             )
             QuickActionCard(
                 icon = Icons.Filled.Info,
                 title = "Support",
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    navController.navigate("support") {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
             )
         }
 
@@ -140,11 +180,12 @@ fun DashboardScreen() {
 fun QuickActionCard(
     icon: ImageVector,
     title: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     Card(
         modifier = modifier,
-        onClick = { /* TODO: Navigate to respective screen */ }
+        onClick = onClick
     ) {
         Column(
             modifier = Modifier
@@ -165,5 +206,13 @@ fun QuickActionCard(
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DashboardScreenPreview() {
+    NosteqTheme {
+        DashboardScreen(navController = rememberNavController())
     }
 }

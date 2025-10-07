@@ -22,4 +22,10 @@ interface ApiService {
     fun getDashboard(
         @Header("Authorization") token: String
     ): Call<DashboardResponse>
+
+    @POST("api/password")
+    fun changePassword(
+        @Header("Authorization") token: String,
+        @Body request: ChangePasswordRequest
+    ): Call<ChangePasswordResponse>
 }

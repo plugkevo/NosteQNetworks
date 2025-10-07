@@ -1,5 +1,7 @@
 package com.example.nosteq
 
+
+// LoginResponse.kt
 data class LoginResponse(
     val data: LoginData
 )
@@ -38,5 +40,26 @@ data class IspDetail(
 
 // UserResponse for getUserDetails endpoint
 data class UserResponse(
-    val data: UserInfo
+    val data: UserDetail
+)
+
+data class UserDetail(
+    val id: Int,
+    val username: String,
+    val planName: String,
+    val status: Int,
+    val startDate: String,
+    val expiryDate: String,
+    val userinfo: UserInfoDetail,
+    val documents: List<Any>?
+)
+
+data class UserInfoDetail(
+    val contactPerson: String?,
+    val company: String?,
+    val phone: String?,
+    val email: String?,
+    val billingAddress1: String?,
+    val billingCity: String?,
+    val billingZip: String?
 )

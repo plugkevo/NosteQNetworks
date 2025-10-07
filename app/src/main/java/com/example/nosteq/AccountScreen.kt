@@ -1,127 +1,398 @@
 package com.example.nosteq
 
 
+
 import android.content.Intent
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.nosteq.ui.theme.NosteqTheme
+
 import com.nosteq.provider.utils.PreferencesManager
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+
 
 @Composable
 fun AccountScreen() {
     val context = LocalContext.current
     val preferencesManager = PreferencesManager(context)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "Account Details",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
+    var userDetail by remember { mutableStateOf<UserResponse?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var currentPasswordVisible by remember { mutableStateOf(false) }
+    var newPasswordVisible by remember { mutableStateOf(false) }
+    var confirmPasswordVisible by remember { mutableStateOf(false) }
+    var isChangingPassword by remember { mutableStateOf(false) }
+    var passwordChangeMessage by remember { mutableStateOf<String?>(null) }
+    var passwordChangeError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        val token = preferencesManager.getToken()
+        if (token.isNullOrEmpty()) {
+            errorMessage = "No authentication token found"
+            isLoading = false
+            return@LaunchedEffect
+        }
+
+        Log.d("[v0]", "Fetching user details with token: $token")
+
+        ApiClient.instance.getUserDetails("Bearer $token").enqueue(object : Callback<UserResponse> {
+            override fun onResponse(call: Call<UserResponse>, response: Response<UserResponse>) {
+                isLoading = false
+                if (response.isSuccessful) {
+                    userDetail = response.body()
+                    Log.d("[v0]", "User details loaded successfully")
+                } else {
+                    errorMessage = "Failed to load user details (code ${response.code()})"
+                    Log.e("[v0]", "Error: ${response.errorBody()?.string()}")
+                }
+            }
+
+            override fun onFailure(call: Call<UserResponse>, t: Throwable) {
+                isLoading = false
+                errorMessage = "Network error: ${t.message}"
+                Log.e("[v0]", "Network error", t)
+            }
+        })
+    }
+
+    fun changePassword() {
+        if (currentPassword.isEmpty() || newPassword.isEmpty() || confirmPassword.isEmpty()) {
+            passwordChangeError = "All fields are required"
+            return
+        }
+
+        if (newPassword != confirmPassword) {
+            passwordChangeError = "New password and confirm password do not match"
+            return
+        }
+
+        if (newPassword.length < 6) {
+            passwordChangeError = "New password must be at least 6 characters"
+            return
+        }
+
+        isChangingPassword = true
+        passwordChangeError = null
+        passwordChangeMessage = null
+
+        val token = preferencesManager.getToken()
+        if (token.isNullOrEmpty()) {
+            passwordChangeError = "No authentication token found"
+            isChangingPassword = false
+            return
+        }
+
+        val request = ChangePasswordRequest(
+            currentPassword = currentPassword,
+            newPassword = newPassword,
+            confirmPassword = confirmPassword
         )
 
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+        ApiClient.instance.changePassword("Bearer $token", request).enqueue(object : Callback<ChangePasswordResponse> {
+            override fun onResponse(call: Call<ChangePasswordResponse>, response: Response<ChangePasswordResponse>) {
+                isChangingPassword = false
+                if (response.isSuccessful) {
+                    passwordChangeMessage = response.body()?.message ?: "Password changed successfully"
+                    // Clear password fields
+                    currentPassword = ""
+                    newPassword = ""
+                    confirmPassword = ""
+                } else {
+                    passwordChangeError = "Failed to change password (code ${response.code()})"
+                    Log.e("[v0]", "Error: ${response.errorBody()?.string()}")
+                }
+            }
+
+            override fun onFailure(call: Call<ChangePasswordResponse>, t: Throwable) {
+                isChangingPassword = false
+                passwordChangeError = "Network error: ${t.message}"
+                Log.e("[v0]", "Network error", t)
+            }
+        })
+    }
+
+    when {
+        isLoading -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                CircularProgressIndicator()
+            }
+        }
+        errorMessage != null -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "Personal Information",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        text = errorMessage ?: "Unknown error",
+                        color = MaterialTheme.colorScheme.error
                     )
-                    IconButton(onClick = { /* TODO: Edit profile */ }) {
-                        Icon(Icons.Filled.Edit, contentDescription = "Edit")
+                    Button(onClick = {
+                        isLoading = true
+                        errorMessage = null
+                    }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = "Retry")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Retry")
+                    }
+                }
+            }
+        }
+        userDetail != null -> {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Account Details",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Account Information Card
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Account Information",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        AccountInfoRow("Username", userDetail?.data?.username ?: "N/A")
+                        AccountInfoRow("Account ID", userDetail?.data?.id?.toString() ?: "N/A")
+                        AccountInfoRow("Current Plan", userDetail?.data?.planName ?: "N/A")
+                        AccountInfoRow(
+                            "Status",
+                            when (userDetail?.data?.status) {
+                                1 -> "Active"
+                                0 -> "Inactive"
+                                else -> "Unknown"
+                            }
+                        )
+                        AccountInfoRow("Start Date", userDetail?.data?.startDate ?: "N/A")
+                        AccountInfoRow("Expiry Date", userDetail?.data?.expiryDate ?: "N/A")
                     }
                 }
 
-                AccountInfoRow("Full Name", "John Doe")
-                AccountInfoRow("Account ID", "NST-2024-001")
-                AccountInfoRow("Email", "john.doe@example.com")
-                AccountInfoRow("Phone", "+254 712 345 678")
-                AccountInfoRow("Installation Address", "123 Main Street, Nairobi")
+                // Personal Information Card
+                userDetail?.data?.userinfo?.let { userInfo ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = "Personal Information",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            AccountInfoRow("Contact Person", userInfo.contactPerson ?: "N/A")
+                            AccountInfoRow("Company", userInfo.company ?: "N/A")
+                            AccountInfoRow("Phone", userInfo.phone ?: "N/A")
+                            AccountInfoRow("Email", userInfo.email ?: "N/A")
+                        }
+                    }
+                }
+
+                // Billing Information Card
+                userDetail?.data?.userinfo?.let { userInfo ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                text = "Billing Information",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            AccountInfoRow("Address", userInfo.billingAddress1 ?: "N/A")
+                            AccountInfoRow("City", userInfo.billingCity ?: "N/A")
+                            AccountInfoRow("ZIP Code", userInfo.billingZip ?: "N/A")
+                        }
+                    }
+                }
+
+                // Change Password Card
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Change Password",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        // Current Password Field
+                        OutlinedTextField(
+                            value = currentPassword,
+                            onValueChange = {
+                                currentPassword = it
+                                passwordChangeError = null
+                            },
+                            label = { Text("Current Password") },
+                            visualTransformation = if (currentPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            trailingIcon = {
+                                IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
+                                    Icon(
+                                        imageVector = if (currentPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                        contentDescription = if (currentPasswordVisible) "Hide password" else "Show password"
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isChangingPassword
+                        )
+
+                        // New Password Field
+                        OutlinedTextField(
+                            value = newPassword,
+                            onValueChange = {
+                                newPassword = it
+                                passwordChangeError = null
+                            },
+                            label = { Text("New Password") },
+                            visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            trailingIcon = {
+                                IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
+                                    Icon(
+                                        imageVector = if (newPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                        contentDescription = if (newPasswordVisible) "Hide password" else "Show password"
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isChangingPassword
+                        )
+
+                        // Confirm Password Field
+                        OutlinedTextField(
+                            value = confirmPassword,
+                            onValueChange = {
+                                confirmPassword = it
+                                passwordChangeError = null
+                            },
+                            label = { Text("Confirm New Password") },
+                            visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            trailingIcon = {
+                                IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                                    Icon(
+                                        imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                        contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password"
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isChangingPassword
+                        )
+
+                        // Error Message
+                        if (passwordChangeError != null) {
+                            Text(
+                                text = passwordChangeError ?: "",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        // Success Message
+                        if (passwordChangeMessage != null) {
+                            Text(
+                                text = passwordChangeMessage ?: "",
+                                color = MaterialTheme.colorScheme.primary,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+
+                        // Change Password Button
+                        Button(
+                            onClick = { changePassword() },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isChangingPassword
+                        ) {
+                            if (isChangingPassword) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                            Text("Change Password")
+                        }
+                    }
+                }
+
+                // Logout Button
+                Button(
+                    onClick = {
+                        preferencesManager.clearLoginData()
+                        val intent = Intent(context, com.example.nosteq.LoginActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        context.startActivity(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.ExitToApp,
+                        contentDescription = "Logout",
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text("Logout")
+                }
             }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Account Status",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                AccountInfoRow("Status", "Active")
-                AccountInfoRow("Member Since", "January 2024")
-                AccountInfoRow("Last Payment", "December 15, 2024")
-            }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = "Notification Preferences",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                NotificationToggle("Renewal Reminders", true)
-                NotificationToggle("Promotional Offers", false)
-                NotificationToggle("Service Updates", true)
-                NotificationToggle("Outage Alerts", true)
-            }
-        }
-
-        Button(
-            onClick = {
-                preferencesManager.clearLoginData()
-                val intent = Intent(context, com.example.nosteq.LoginActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                context.startActivity(intent)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error
-            )
-        ) {
-            Icon(
-                imageVector = Icons.Filled.ExitToApp,
-                contentDescription = "Logout",
-                modifier = Modifier.padding(end = 8.dp)
-            )
-            Text("Logout")
         }
     }
 }
@@ -142,20 +413,6 @@ fun AccountInfoRow(label: String, value: String) {
     }
 }
 
-@Composable
-fun NotificationToggle(label: String, checked: Boolean) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Switch(
-            checked = checked,
-            onCheckedChange = { /* TODO: Update notification preference */ }
-        )
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 fun AccountScreenPreview() {
@@ -163,3 +420,4 @@ fun AccountScreenPreview() {
         AccountScreen()
     }
 }
+

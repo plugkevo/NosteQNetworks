@@ -1,21 +1,28 @@
 package com.example.nosteq
 
+
+import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
-
+import com.example.nosteq.ui.theme.NosteqTheme
+import com.nosteq.provider.utils.PreferencesManager
 
 @Composable
 fun AccountScreen() {
+    val context = LocalContext.current
+    val preferencesManager = PreferencesManager(context)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -95,6 +102,26 @@ fun AccountScreen() {
                 NotificationToggle("Service Updates", true)
                 NotificationToggle("Outage Alerts", true)
             }
+        }
+
+        Button(
+            onClick = {
+                preferencesManager.clearLoginData()
+                val intent = Intent(context, com.example.nosteq.LoginActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                context.startActivity(intent)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.error
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Filled.ExitToApp,
+                contentDescription = "Logout",
+                modifier = Modifier.padding(end = 8.dp)
+            )
+            Text("Logout")
         }
     }
 }

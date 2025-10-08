@@ -28,4 +28,18 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Body request: ChangePasswordRequest
     ): Call<ChangePasswordResponse>
+
+    @GET("api/invoice")
+    fun getInvoices(
+        @Header("Authorization") token: String,
+        @Query("from") fromDate: String,
+        @Query("to") toDate: String
+    ): Call<InvoiceResponse>
+
+    @GET("api/receipt")
+    fun getReceipts(
+        @Header("Authorization") token: String,
+        @Query("from") fromDate: String,
+        @Query("to") toDate: String
+    ): Call<ReceiptResponse>
 }

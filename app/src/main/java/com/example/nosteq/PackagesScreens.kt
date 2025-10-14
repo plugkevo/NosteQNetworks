@@ -11,7 +11,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
 
-@Preview(showBackground=true)
+
 @Composable
 fun PackagesScreen() {
     Column(
@@ -29,25 +29,25 @@ fun PackagesScreen() {
 
         PackageCard(
             name = "Basic 10Mbps",
-            speed = "10 Mbps",
-            quota = "50 GB",
-            price = "KES 1,500",
+            speed = "8 Mbps",
+            quota = "Unlimited",
+            price = "KES 2,000",
             validity = "30 Days",
             isActive = false
         )
 
         PackageCard(
             name = "Standard 25Mbps",
-            speed = "25 Mbps",
-            quota = "100 GB",
+            speed = "15 Mbps",
+            quota = "Unlimited",
             price = "KES 2,500",
             validity = "30 Days",
             isActive = false
         )
 
         PackageCard(
-            name = "Premium 50Mbps",
-            speed = "50 Mbps",
+            name = "Premium 30Mbps",
+            speed = "30 Mbps",
             quota = "Unlimited",
             price = "KES 4,000",
             validity = "30 Days",

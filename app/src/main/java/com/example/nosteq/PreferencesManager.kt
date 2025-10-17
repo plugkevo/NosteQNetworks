@@ -15,6 +15,8 @@ class PreferencesManager(context: Context) {
         private const val KEY_ISP_CURRENCY = "isp_currency"
         private const val KEY_LOGIN_TIMESTAMP = "login_timestamp"
         private const val SESSION_TIMEOUT_MS = 20 * 60 * 1000L
+
+        private const val KEY_ONU_EXTERNAL_ID = "onu_external_id"
     }
 
     fun saveLoginData(
@@ -45,6 +47,8 @@ class PreferencesManager(context: Context) {
 
     fun getIspCurrency(): String? = prefs.getString(KEY_ISP_CURRENCY, null)
 
+
+
     fun clearLoginData() {
         prefs.edit().clear().apply()
     }
@@ -60,4 +64,28 @@ class PreferencesManager(context: Context) {
 
         return elapsedTime >= SESSION_TIMEOUT_MS
     }
+
+    fun saveOnuExternalId(externalId: String) {
+        prefs.edit().putString(KEY_ONU_EXTERNAL_ID, externalId).apply()
+    }
+
+    fun getOnuExternalId(): String? {
+        return prefs.getString(KEY_ONU_EXTERNAL_ID, null)
+    }
+
+    fun clearOnuExternalId() {
+        prefs.edit().remove(KEY_ONU_EXTERNAL_ID).apply()
+    }
+
+
+    fun saveUsername(username: String) {
+        prefs.edit().putString(KEY_USERNAME, username).apply()
+    }
+
+
+
+    fun clearUsername() {
+        prefs.edit().remove(KEY_USERNAME).apply()
+    }
+
 }

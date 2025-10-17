@@ -26,6 +26,7 @@ class LoginActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+
         preferencesManager = PreferencesManager(this)
 
         if (preferencesManager.isLoggedIn()) {

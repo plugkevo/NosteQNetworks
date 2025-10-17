@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -14,12 +15,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.nosteq.provider.utils.PreferencesManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
 fun HomeScreen() {
     val navController = rememberNavController()
+    val context = LocalContext.current
+    val preferencesManager = remember { PreferencesManager(context) }
+    val username = preferencesManager.getUsername() ?: ""
 
     Scaffold(
         topBar = {
@@ -65,7 +70,7 @@ fun HomeScreen() {
             composable("account") { AccountScreen() }
             composable("billing") { BillingScreen() }
             composable("support") { SupportScreen() }
-            composable("router"){RouterScreen() }
+            composable("router") { RouterScreen(username = username) }
         }
     }
 }

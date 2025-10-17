@@ -42,4 +42,25 @@ interface ApiService {
         @Query("from") fromDate: String,
         @Query("to") toDate: String
     ): Call<ReceiptResponse>
+
+    //  Added SmartOLT router management endpoints
+    @POST("api/router/reboot")
+    fun rebootRouter(
+        @Header("Authorization") token: String
+    ): Call<RebootResponse>
+
+    @GET("api/router/status")
+    fun getRouterStatus(
+        @Header("Authorization") token: String
+    ): Call<OnuStatusResponse>
+
+    @GET("api/router/speed-profiles")
+    fun getSpeedProfiles(
+        @Header("Authorization") token: String
+    ): Call<SpeedProfilesResponse>
+
+    @GET("api/router/olts")
+    fun getOlts(
+        @Header("Authorization") token: String
+    ): Call<OltListResponse>
 }

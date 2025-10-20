@@ -49,20 +49,6 @@ fun SupportScreen() {
             }
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Support Tickets",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            IconButton(onClick = { /* TODO: Create new ticket */ }) {
-                Icon(Icons.Filled.Add, contentDescription = "New Ticket")
-            }
-        }
-
 
 
         Text(

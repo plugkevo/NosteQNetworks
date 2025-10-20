@@ -44,8 +44,8 @@ fun SupportScreen() {
                     fontWeight = FontWeight.Bold
                 )
 
-                ContactRow(Icons.Filled.Phone, "Phone", "+254 700 123 456")
-                ContactRow(Icons.Filled.Email, "Email", "support@nosteq.com")
+                ContactRow(Icons.Filled.Phone, "Phone", "+254 743 101 738")
+                ContactRow(Icons.Filled.Email, "Email", "info@nosteq.com")
             }
         }
 
@@ -63,19 +63,7 @@ fun SupportScreen() {
             }
         }
 
-        TicketCard(
-            ticketId = "TKT-001",
-            subject = "Slow internet speed",
-            status = "Open",
-            date = "Dec 20, 2024"
-        )
 
-        TicketCard(
-            ticketId = "TKT-002",
-            subject = "Router not connecting",
-            status = "Resolved",
-            date = "Dec 15, 2024"
-        )
 
         Text(
             text = "Frequently Asked Questions",

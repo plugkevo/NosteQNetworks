@@ -28,8 +28,8 @@ fun PackagesScreen() {
         )
 
         PackageCard(
-            name = "Basic 10Mbps",
-            speed = "8 Mbps",
+            name = "FIBER BRONZE",
+            speed = "10 Mbps",
             quota = "Unlimited",
             price = "KES 2,000",
             validity = "30 Days",
@@ -37,16 +37,16 @@ fun PackagesScreen() {
         )
 
         PackageCard(
-            name = "Standard 25Mbps",
-            speed = "15 Mbps",
+            name = "FIBER GOLD",
+            speed = "20 Mbps",
             quota = "Unlimited",
-            price = "KES 2,500",
+            price = "KES 3,000",
             validity = "30 Days",
             isActive = false
         )
 
         PackageCard(
-            name = "Premium 30Mbps",
+            name = "FIBER PLATINUM",
             speed = "30 Mbps",
             quota = "Unlimited",
             price = "KES 4,000",
@@ -55,10 +55,10 @@ fun PackagesScreen() {
         )
 
         PackageCard(
-            name = "Ultra 100Mbps",
-            speed = "100 Mbps",
+            name = "FIBER DIAMOND",
+            speed = "60 Mbps",
             quota = "Unlimited",
-            price = "KES 6,500",
+            price = "KES 6,000",
             validity = "30 Days",
             isActive = false
         )

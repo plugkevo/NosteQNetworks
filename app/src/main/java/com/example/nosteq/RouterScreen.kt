@@ -12,9 +12,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.nosteq.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,13 +47,6 @@ fun RouterScreen(
             return@LaunchedEffect
         }
 
-        // Validate SmartOLT configuration
-        if (SmartOltConfig.SUBDOMAIN == "YOUR_SUBDOMAIN_HERE" ||
-            SmartOltConfig.API_KEY == "YOUR_API_KEY_HERE") {
-            errorMessage = "SmartOLT not configured. Please contact support."
-            Log.e("RouterScreen", "SmartOLT credentials not configured")
-            return@LaunchedEffect
-        }
 
         isLoading = true
         errorMessage = null
@@ -506,6 +502,15 @@ private fun StatusRow(label: String, value: String?) {
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+@Preview(showBackground = true, showSystemUi = true)
+@Composable
+fun RouterScreenPreview() {
+    NosteqTheme {
+        RouterScreen(
+            username = "testuser"
         )
     }
 }

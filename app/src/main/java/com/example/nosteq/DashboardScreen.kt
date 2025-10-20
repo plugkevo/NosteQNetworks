@@ -1,8 +1,6 @@
 package com.example.nosteq
 
 
-
-import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState

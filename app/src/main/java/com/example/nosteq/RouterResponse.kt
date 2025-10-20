@@ -104,7 +104,7 @@ data class ServicePort(
 // All Onus Details Response for get_all_onus_details endpoint
 data class AllOnusDetailsResponse(
     val status: Boolean,
-    @SerializedName("onus_details") val onusDetails: List<OnuDetailsItem>
+    @SerializedName("onus") val onus: List<OnuDetailsItem>
 )
 
 data class OnuDetailsItem(
@@ -119,5 +119,6 @@ data class OnuDetailsItem(
     @SerializedName("onu_type_name") val onuTypeName: String?,
     @SerializedName("zone_name") val zoneName: String?,
     val address: String?,
-    @SerializedName("odb_name") val odbName: String?
+    @SerializedName("odb_name") val odbName: String?,
+    val username: String?
 )

@@ -1,6 +1,5 @@
 package com.example.nosteq
 
-
 import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,14 +14,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.nosteq.ui.theme.NosteqTheme
+
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouterScreen(
-    username: String // Added username parameter to auto-match ONU
+    username: String
 ) {
     val context = LocalContext.current
     val preferencesManager = remember { PreferencesManager(context) }
@@ -69,20 +68,26 @@ fun RouterScreen(
                 )
 
                 if (allOnusResponse.isSuccessful && allOnusResponse.body()?.status == true) {
-                    val allOnus = allOnusResponse.body()?.onusDetails ?: emptyList()
+                    val allOnus = allOnusResponse.body()?.onus ?: emptyList()
 
                     Log.d("RouterScreen", "Fetched ${allOnus.size} ONUs from SmartOLT")
-                    Log.d("RouterScreen", "ONU names: ${allOnus.map { it.name }}")
+                    Log.d("RouterScreen", "Searching for username: $username")
 
-                    // Find ONU where name contains the username (case-insensitive)
+                    // Log all usernames for debugging
+                    allOnus.forEach { onu ->
+                        Log.d("RouterScreen", "ONU: ${onu.name}, Username: ${onu.username}")
+                    }
+
+                    // Find ONU where username matches the logged-in user's username
                     val matchingOnu = allOnus.firstOrNull { onu ->
-                        onu.name.contains(username, ignoreCase = true)
+                        onu.username?.equals(username, ignoreCase = true) == true
                     }
 
                     if (matchingOnu != null) {
                         onuExternalId = matchingOnu.uniqueExternalId
                         Log.d("RouterScreen", "✓ Found matching ONU!")
                         Log.d("RouterScreen", "  - ONU Name: ${matchingOnu.name}")
+                        Log.d("RouterScreen", "  - Username: ${matchingOnu.username}")
                         Log.d("RouterScreen", "  - ONU External ID: ${matchingOnu.uniqueExternalId}")
                         Log.d("RouterScreen", "  - ONU Serial: ${matchingOnu.sn}")
 
@@ -90,15 +95,26 @@ fun RouterScreen(
                         preferencesManager.saveOnuExternalId(matchingOnu.uniqueExternalId)
                         Log.d("RouterScreen", "Cached ONU external ID for future use")
                     } else {
-                        errorMessage = "No ONU found matching username: $username"
+                        errorMessage = "No ONU found for your account. Please contact support."
                         Log.e("RouterScreen", "✗ No matching ONU found for username: $username")
-                        Log.e("RouterScreen", "Available ONU names: ${allOnus.map { it.name }}")
+                        Log.e("RouterScreen", "Available usernames: ${allOnus.mapNotNull { it.username }.joinToString()}")
                         isLoading = false
                         return@LaunchedEffect
                     }
                 } else {
+                    val errorBody = allOnusResponse.errorBody()?.string()
+                    val statusCode = allOnusResponse.code()
                     errorMessage = "Failed to fetch ONUs: ${allOnusResponse.message()}"
+
                     Log.e("RouterScreen", "API error: ${allOnusResponse.message()}")
+                    Log.e("RouterScreen", "Status code: $statusCode")
+                    Log.e("RouterScreen", "Error body: $errorBody")
+                    Log.e("RouterScreen", "SmartOLT Config - Subdomain: ${SmartOltConfig.SUBDOMAIN}, Base URL: ${SmartOltConfig.getBaseUrl()}")
+
+                    if (statusCode == 403) {
+                        errorMessage = "Access forbidden. Please check:\n1. API key is correct\n2. Device IP is whitelisted in SmartOLT"
+                    }
+
                     isLoading = false
                     return@LaunchedEffect
                 }
@@ -111,7 +127,6 @@ fun RouterScreen(
         }
     }
 
-    // Fetch data when ONU external ID is available
     LaunchedEffect(onuExternalId) {
         if (onuExternalId == null) return@LaunchedEffect
 
@@ -121,7 +136,7 @@ fun RouterScreen(
         errorMessage = null
 
         try {
-            // Fetch ONU details
+            // Fetch ONU details first
             try {
                 val detailsResponse = SmartOltClient.apiService.getOnuDetails(
                     onuExternalId = onuExternalId!!,
@@ -131,30 +146,32 @@ fun RouterScreen(
                 if (detailsResponse.isSuccessful && detailsResponse.body()?.status == true) {
                     onuDetails = detailsResponse.body()?.onuDetails
                     Log.d("RouterScreen", "Successfully fetched ONU details")
+
+                    // Now fetch ONU status using the OLT ID, board, and port from onuDetails
+                    onuDetails?.let { details ->
+                        try {
+                            val statusResponse = SmartOltClient.apiService.getOnuStatuses(
+                                apiKey = SmartOltConfig.API_KEY,
+                                oltId = details.oltId.toIntOrNull(),
+                                board = details.board.toIntOrNull(),
+                                port = details.port.toIntOrNull()
+                            )
+
+                            if (statusResponse.isSuccessful && statusResponse.body()?.status == true) {
+                                onuStatus = statusResponse.body()?.response?.firstOrNull()
+                                Log.d("RouterScreen", "Successfully fetched ONU status")
+                            } else {
+                                Log.w("RouterScreen", "Failed to fetch ONU status: ${statusResponse.message()}")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("RouterScreen", "Error fetching ONU status", e)
+                        }
+                    }
                 } else {
                     Log.w("RouterScreen", "Failed to fetch ONU details: ${detailsResponse.message()}")
                 }
             } catch (e: Exception) {
                 Log.e("RouterScreen", "Error fetching ONU details", e)
-            }
-
-            try {
-                val statusResponse = SmartOltClient.apiService.getOnuStatuses(
-                    apiKey = SmartOltConfig.API_KEY,
-                    oltId = SmartOltConfig.OLT_ID,
-                    board = SmartOltConfig.BOARD,
-                    port = SmartOltConfig.PORT,
-                    zone = SmartOltConfig.ZONE
-                )
-
-                if (statusResponse.isSuccessful && statusResponse.body()?.status == true) {
-                    onuStatus = statusResponse.body()?.response?.firstOrNull()
-                    Log.d("RouterScreen", "Successfully fetched ONU status")
-                } else {
-                    Log.w("RouterScreen", "Failed to fetch ONU status: ${statusResponse.message()}")
-                }
-            } catch (e: Exception) {
-                Log.e("RouterScreen", "Error fetching ONU status", e)
             }
 
             // Fetch OLTs
@@ -225,15 +242,7 @@ fun RouterScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("Router Management") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        }
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -505,6 +514,7 @@ private fun StatusRow(label: String, value: String?) {
         )
     }
 }
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun RouterScreenPreview() {

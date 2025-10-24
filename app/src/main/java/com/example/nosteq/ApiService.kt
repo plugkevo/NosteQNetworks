@@ -63,4 +63,22 @@ interface ApiService {
     fun getOlts(
         @Header("Authorization") token: String
     ): Call<OltListResponse>
+
+    @POST("loginPhone")
+    @Headers("Accept: application/json")
+    fun login(
+        @Body loginRequest: LoginRequest
+    ): Call<LoginResponse>
+
+    @GET("recharge/{user_id}")
+    fun getRechargePlans(
+        @Path("user_id") userId: Int,
+        @Header("Authorization") token: String
+    ): Call<RechargePlansResponse>
+
+    @POST("processRecharge")
+    fun processRecharge(
+        @Header("Authorization") token: String,
+        @Body rechargeRequest: RechargeRequest
+    ): Call<RechargeResponse>
 }

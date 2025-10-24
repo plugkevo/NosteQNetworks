@@ -13,8 +13,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.nosteq.ui.theme.NosteqTheme
-
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
 
@@ -30,10 +31,10 @@ fun RouterScreen(
     var onuStatus by remember { mutableStateOf<OnuStatus?>(null) }
     var onuDetails by remember { mutableStateOf<OnuDetails?>(null) }
     var olts by remember { mutableStateOf<List<Olt>>(emptyList()) }
-    var speedProfiles by remember { mutableStateOf<List<SpeedProfile>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
+    var selectedGraphType by remember { mutableStateOf("daily") }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -46,6 +47,13 @@ fun RouterScreen(
             return@LaunchedEffect
         }
 
+        // Validate SmartOLT configuration
+        if (SmartOltConfig.SUBDOMAIN == "YOUR_SUBDOMAIN_HERE" ||
+            SmartOltConfig.API_KEY == "YOUR_API_KEY_HERE") {
+            errorMessage = "SmartOLT not configured. Please contact support."
+            Log.e("RouterScreen", "SmartOLT credentials not configured")
+            return@LaunchedEffect
+        }
 
         isLoading = true
         errorMessage = null
@@ -187,18 +195,6 @@ fun RouterScreen(
                 Log.e("RouterScreen", "Error fetching OLTs", e)
             }
 
-            // Fetch speed profiles
-            try {
-                val profilesResponse = SmartOltClient.apiService.getSpeedProfiles(SmartOltConfig.API_KEY)
-                if (profilesResponse.isSuccessful && profilesResponse.body()?.status == true) {
-                    speedProfiles = profilesResponse.body()?.response ?: emptyList()
-                    Log.d("RouterScreen", "Successfully fetched ${speedProfiles.size} speed profiles")
-                } else {
-                    Log.w("RouterScreen", "Failed to fetch speed profiles: ${profilesResponse.message()}")
-                }
-            } catch (e: Exception) {
-                Log.e("RouterScreen", "Error fetching speed profiles", e)
-            }
         } catch (e: Exception) {
             errorMessage = "Failed to load data: ${e.message}"
             Log.e("RouterScreen", "Exception while loading data", e)
@@ -386,6 +382,66 @@ fun RouterScreen(
                 }
             }
 
+            // Traffic Graph Card
+            onuExternalId?.let { externalId ->
+                Card {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Traffic Graph",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+
+                        Divider()
+
+                        // Graph type selector
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("hourly","daily","weekly","monthly","yearly").forEach { type ->
+                                FilterChip(
+                                    selected = selectedGraphType == type,
+                                    onClick = { selectedGraphType = type },
+                                    label = { Text(type.replaceFirstChar { it.uppercase() }) }
+                                )
+                            }
+                        }
+
+                        // Graph image
+                        val graphUrl = "${SmartOltConfig.getBaseUrl()}onu/get_onu_traffic_graph/$externalId/$selectedGraphType"
+
+                        Log.d("RouterScreen", "Loading traffic graph: $graphUrl")
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(250.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context)
+                                    .data(graphUrl)
+                                    .addHeader("X-Token", SmartOltConfig.API_KEY)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = "$selectedGraphType traffic graph",
+                                modifier = Modifier.fillMaxSize(),
+                                onError = { error ->
+                                    Log.e("RouterScreen", "Failed to load traffic graph: ${error.result.throwable.message}")
+                                },
+                                onSuccess = {
+                                    Log.d("RouterScreen", "Successfully loaded traffic graph")
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
             // OLT Information Card
             if (olts.isNotEmpty()) {
                 Card {
@@ -414,51 +470,6 @@ fun RouterScreen(
                                 if (olts.indexOf(olt) < olts.size - 1) {
                                     Divider(modifier = Modifier.padding(vertical = 8.dp))
                                 }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Speed Profiles Card
-            if (speedProfiles.isNotEmpty()) {
-                Card {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "Speed Profiles",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-
-                        Divider()
-
-                        speedProfiles.forEach { profile ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text(
-                                        text = profile.name,
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-                                    Text(
-                                        text = "${profile.direction.uppercase()} • ${profile.type.uppercase()}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                Text(
-                                    text = "${(profile.speed.toIntOrNull() ?: 0) / 1024} Mbps",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            }
-
-                            if (speedProfiles.indexOf(profile) < speedProfiles.size - 1) {
-                                Divider(modifier = Modifier.padding(vertical = 8.dp))
                             }
                         }
                     }

@@ -2,6 +2,7 @@ package com.example.nosteq
 
 
 
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -10,6 +11,7 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
+import retrofit2.http.Streaming
 
 interface SmartOltApiService {
 
@@ -54,6 +56,14 @@ interface SmartOltApiService {
         @Query("zone") zone: String? = null,
         @Query("odb") odb: String? = null
     ): Response<AllOnusDetailsResponse>
+
+    @Streaming
+    @GET("onu/get_onu_traffic_graph/{onu_external_id}/{graph_type}")
+    suspend fun getOnuTrafficGraph(
+        @Path("onu_external_id") onuExternalId: String,
+        @Path("graph_type") graphType: String,
+        @Header("X-Token") apiKey: String
+    ): Response<ResponseBody>
 }
 
 object SmartOltClient {

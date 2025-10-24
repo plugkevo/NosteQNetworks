@@ -47,6 +47,7 @@ data class UserDetail(
     val id: Int,
     val username: String,
     val planName: String,
+    val planId: Int,
     val status: Int,
     val startDate: String,
     val expiryDate: String,

@@ -1,19 +1,211 @@
 package com.example.nosteq
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.text.Html
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
+import com.nosteq.provider.utils.PreferencesManager
 
+import retrofit2.Call
+import retrofit2.Callback
+import retrofit2.Response
+
+
+
+
+fun String.decodeHtml(): String {
+    return Html.fromHtml(this, Html.FROM_HTML_MODE_LEGACY).toString()
+}
+
+private fun processRecharge(
+    plan: Plan,
+    userDetail: UserDetail,
+    preferencesManager: PreferencesManager,
+    context: Context,
+    onProcessing: (Boolean) -> Unit,
+    onError: (String) -> Unit
+) {
+    onProcessing(true)
+
+    val token = preferencesManager.getToken()
+    if (token == null) {
+        onProcessing(false)
+        onError("Authentication token not found")
+        return
+    }
+
+    val rechargeRequest = RechargeRequest(
+        rechargePlan = plan.id,
+        quantity = 1,
+        rechargeType = 1,
+        resetRecharge = false,
+        contactPerson = userDetail.userinfo.contactPerson ?: "",
+        email = userDetail.userinfo.email ?: "",
+        phone = userDetail.userinfo.phone ?: "",
+        city = userDetail.userinfo.billingCity ?: "",
+        zip = userDetail.userinfo.billingZip ?: ""
+    )
+
+    Log.d("PackagesScreen", "=== Processing Recharge ===")
+    Log.d("PackagesScreen", "Plan: ${plan.planName} (ID: ${plan.id})")
+    Log.d("PackagesScreen", "Amount: ${plan.customerCost}")
+
+    PackagesApiClient.instance.processRecharge("Bearer $token", rechargeRequest)
+        .enqueue(object : Callback<RechargeResponse> {
+            override fun onResponse(
+                call: Call<RechargeResponse>,
+                response: Response<RechargeResponse>
+            ) {
+                onProcessing(false)
+                if (response.isSuccessful && response.body() != null) {
+                    val rechargeResponse = response.body()!!
+                    Log.d("PackagesScreen", "✓ Recharge processed successfully")
+                    Log.d("PackagesScreen", "Payment URL: ${rechargeResponse.paymentUrl}")
+
+                    // Open payment URL in browser
+                    val paymentUrl = rechargeResponse.paymentUrl ?: rechargeResponse.data?.hotspotUrl
+                    if (paymentUrl != null) {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paymentUrl))
+                        context.startActivity(intent)
+                    } else {
+                        onError("Payment URL not found in response")
+                        Log.e("PackagesScreen", "✗ No payment URL in response")
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    onError("Payment failed: ${response.code()}")
+                    Log.e("PackagesScreen", "✗ Recharge Error: ${response.code()}")
+                    Log.e("PackagesScreen", "✗ Error Body: $errorBody")
+                }
+            }
+
+            override fun onFailure(call: Call<RechargeResponse>, t: Throwable) {
+                onProcessing(false)
+                onError("Network error: ${t.message}")
+                Log.e("PackagesScreen", "✗ Recharge Network Error: ${t.message}")
+                t.printStackTrace()
+            }
+        })
+}
 
 @Composable
 fun PackagesScreen() {
+    val context = LocalContext.current
+    val preferencesManager = remember { PreferencesManager(context) }
+
+    var plans by remember { mutableStateOf<List<Plan>>(emptyList()) }
+    var userDetail by remember { mutableStateOf<UserDetail?>(null) }
+    var currency by remember { mutableStateOf("KES") }
+    var isLoading by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var selectedPlan by remember { mutableStateOf<Plan?>(null) }
+    var showPaymentDialog by remember { mutableStateOf(false) }
+    var isProcessing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val userId = preferencesManager.getUserId()
+        val token = preferencesManager.getToken()
+
+        if (userId == -1 || token == null) {
+            errorMessage = "User not logged in"
+            isLoading = false
+            return@LaunchedEffect
+        }
+
+        Log.d("PackagesScreen", "=== Fetching Recharge Plans ===")
+        Log.d("PackagesScreen", "User ID: $userId")
+        Log.d("PackagesScreen", "Token: ${token.take(20)}...")
+        Log.d("PackagesScreen", "Authorization Header: Bearer ${token.take(20)}...")
+
+        PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
+            .enqueue(object : Callback<RechargePlansResponse> {
+                override fun onResponse(
+                    call: Call<RechargePlansResponse>,
+                    response: Response<RechargePlansResponse>
+                ) {
+                    isLoading = false
+                    if (response.isSuccessful && response.body() != null) {
+                        val data = response.body()!!
+                        plans = data.plan
+                        userDetail = data.user
+                        currency = data.currency
+                        Log.d("PackagesScreen", "✓ Successfully loaded ${plans.size} plans")
+                    } else {
+                        val errorBody = response.errorBody()?.string()
+                        errorMessage = "Failed to load plans: ${response.code()}"
+                        Log.e("PackagesScreen", "✗ Error Response Code: ${response.code()}")
+                        Log.e("PackagesScreen", "✗ Error Message: ${response.message()}")
+                        Log.e("PackagesScreen", "✗ Error Body: $errorBody")
+                    }
+                }
+
+                override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {
+                    isLoading = false
+                    errorMessage = "Network error: ${t.message}"
+                    Log.e("PackagesScreen", "✗ Network Error: ${t.message}")
+                    Log.e("PackagesScreen", "✗ Error Type: ${t.javaClass.simpleName}")
+                    t.printStackTrace()
+                }
+            })
+    }
+
+    if (showPaymentDialog && selectedPlan != null) {
+        val decodedCurrency = currency.decodeHtml()
+        AlertDialog(
+            onDismissRequest = { showPaymentDialog = false },
+            title = { Text("Confirm Recharge") },
+            text = {
+                Column {
+                    Text("Plan: ${selectedPlan!!.planName}")
+                    Text("Amount: $decodedCurrency ${selectedPlan!!.customerCost}")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Proceed to payment?", fontWeight = FontWeight.Bold)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPaymentDialog = false
+                        processRecharge(
+                            plan = selectedPlan!!,
+                            userDetail = userDetail!!,
+                            preferencesManager = preferencesManager,
+                            context = context,
+                            onProcessing = { isProcessing = it },
+                            onError = { errorMessage = it }
+                        )
+                    },
+                    enabled = !isProcessing
+                ) {
+                    if (isProcessing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Confirm")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPaymentDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -27,53 +219,63 @@ fun PackagesScreen() {
             fontWeight = FontWeight.Bold
         )
 
-        PackageCard(
-            name = "FIBER BRONZE",
-            speed = "10 Mbps",
-            quota = "Unlimited",
-            price = "KES 2,000",
-            validity = "30 Days",
-            isActive = false
-        )
-
-        PackageCard(
-            name = "FIBER GOLD",
-            speed = "20 Mbps",
-            quota = "Unlimited",
-            price = "KES 3,000",
-            validity = "30 Days",
-            isActive = false
-        )
-
-        PackageCard(
-            name = "FIBER PLATINUM",
-            speed = "30 Mbps",
-            quota = "Unlimited",
-            price = "KES 4,000",
-            validity = "30 Days",
-            isActive = true
-        )
-
-        PackageCard(
-            name = "FIBER DIAMOND",
-            speed = "60 Mbps",
-            quota = "Unlimited",
-            price = "KES 6,000",
-            validity = "30 Days",
-            isActive = false
-        )
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            errorMessage != null -> {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Text(
+                        text = errorMessage!!,
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+            plans.isEmpty() -> {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "No packages available",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+            else -> {
+                plans.forEach { plan ->
+                    PackageCard(
+                        plan = plan,
+                        currency = currency,
+                        isActive = plan.id == userDetail?.planId,
+                        onSubscribe = {
+                            selectedPlan = plan
+                            showPaymentDialog = true
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
 fun PackageCard(
-    name: String,
-    speed: String,
-    quota: String,
-    price: String,
-    validity: String,
-    isActive: Boolean
+    plan: Plan,
+    currency: String,
+    isActive: Boolean,
+    onSubscribe: () -> Unit
 ) {
+    val decodedCurrency = currency.decodeHtml()
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = if (isActive) {
@@ -93,7 +295,7 @@ fun PackageCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = name,
+                    text = plan.planName,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -102,35 +304,17 @@ fun PackageCard(
                 }
             }
 
-            Divider()
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text("Speed", style = MaterialTheme.typography.bodySmall)
-                    Text(speed, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                }
-                Column {
-                    Text("Quota", style = MaterialTheme.typography.bodySmall)
-                    Text(quota, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                }
-                Column {
-                    Text("Validity", style = MaterialTheme.typography.bodySmall)
-                    Text(validity, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-                }
-            }
+            HorizontalDivider()
 
             Text(
-                text = price,
+                text = "$decodedCurrency ${plan.customerCost}",
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
 
             Button(
-                onClick = { /* TODO: Implement package subscription */ },
+                onClick = onSubscribe,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isActive
             ) {
@@ -140,10 +324,11 @@ fun PackageCard(
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun PackagesScreenPreview() {
-    NosteqTheme {
-        PackagesScreen()
-    }
+fun HorizontalDivider() {
+    Divider(
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+        thickness = 1.dp,
+        modifier = Modifier.padding(vertical = 8.dp)
+    )
 }

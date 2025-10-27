@@ -11,7 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 
 //theme in use
-import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
+import com.example.nosteq.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 
 class MainActivity : ComponentActivity() {

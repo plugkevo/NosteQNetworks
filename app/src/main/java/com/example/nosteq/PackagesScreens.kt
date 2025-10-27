@@ -12,16 +12,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.nosteq.provider.utils.PreferencesManager
 
+import com.nosteq.provider.utils.PreferencesManager
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-
-
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import com.google.gson.GsonBuilder
 
 
 fun String.decodeHtml(): String {
@@ -141,6 +145,11 @@ fun PackagesScreen() {
                         userDetail = data.user
                         currency = data.currency
                         Log.d("PackagesScreen", "✓ Successfully loaded ${plans.size} plans")
+                        Log.d("PackagesScreen", "[v0] User's current planId: ${userDetail?.planId}")
+                        plans.forEach { plan ->
+                            val isActive = plan.id == userDetail?.planId
+                            Log.d("PackagesScreen", "[v0] Plan: ${plan.planName} (ID: ${plan.id}) - Active: $isActive")
+                        }
                     } else {
                         val errorBody = response.errorBody()?.string()
                         errorMessage = "Failed to load plans: ${response.code()}"
@@ -280,7 +289,7 @@ fun PackageCard(
         modifier = Modifier.fillMaxWidth(),
         colors = if (isActive) {
             CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
             )
         } else {
             CardDefaults.cardColors()
@@ -292,7 +301,8 @@ fun PackageCard(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = plan.planName,
@@ -300,7 +310,12 @@ fun PackageCard(
                     fontWeight = FontWeight.Bold
                 )
                 if (isActive) {
-                    Badge { Text("Active") }
+                    Badge(
+                        containerColor = Color(0xFF4CAF50), // Green
+                        contentColor = Color.White
+                    ) {
+                        Text("Active")
+                    }
                 }
             }
 
@@ -309,14 +324,20 @@ fun PackageCard(
             Text(
                 text = "$decodedCurrency ${plan.customerCost}",
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = Color(0xFF42A5F5), // Light blue
                 fontWeight = FontWeight.Bold
             )
 
             Button(
                 onClick = onSubscribe,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isActive
+                enabled = !isActive,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF42A5F5), // Light blue
+                    contentColor = Color.White,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             ) {
                 Text(if (isActive) "Current Package" else "Subscribe")
             }

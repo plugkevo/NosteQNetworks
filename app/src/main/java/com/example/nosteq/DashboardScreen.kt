@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import com.example.nosteq.ui.theme.NosteqTheme
+import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 import retrofit2.Call
 import retrofit2.Callback

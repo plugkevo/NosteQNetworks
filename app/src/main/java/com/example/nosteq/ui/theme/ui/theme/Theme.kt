@@ -16,9 +16,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.example.nosteq.ui.theme.Typography
+import kotlin.Result.Companion.success
 
 
-//in use
+//theme in use
 private val DarkColorScheme = darkColorScheme(
     primary = Color(0xFF1E3A8A), // Dark blue
     onPrimary = Color(0xFFFFFFFF), // White

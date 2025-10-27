@@ -1,5 +1,7 @@
 package com.example.nosteq
 
+import com.google.gson.annotations.SerializedName
+
 
 // LoginResponse.kt
 data class LoginResponse(
@@ -47,6 +49,7 @@ data class UserDetail(
     val id: Int,
     val username: String,
     val planName: String,
+    @SerializedName("plan_id")
     val planId: Int,
     val status: Int,
     val startDate: String,

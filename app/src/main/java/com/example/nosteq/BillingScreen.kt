@@ -20,11 +20,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.nosteq.ui.theme.NosteqTheme
+import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 import retrofit2.Call
 import retrofit2.Callback
@@ -320,7 +321,7 @@ fun ReceiptCard(
                     text = "KES ${receipt.amount}",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = Color(0xFF0CCFEA)
                 )
                 Text(
                     text = receipt.receiptType,

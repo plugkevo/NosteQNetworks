@@ -16,17 +16,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-
 import com.nosteq.provider.utils.PreferencesManager
-import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import com.google.gson.GsonBuilder
-
 
 fun String.decodeHtml(): String {
     return Html.fromHtml(this, Html.FROM_HTML_MODE_LEGACY).toString()
@@ -76,7 +69,7 @@ private fun processRecharge(
         resetRecharge = false,
         contactPerson = userDetail.userinfo.contactPerson ?: "",
         email = userDetail.userinfo.email ?: "",
-        phone = formattedPhone, // Using formatted phone number
+        phone = formattedPhone,
         city = userDetail.userinfo.billingCity ?: "",
         zip = userDetail.userinfo.billingZip ?: ""
     )
@@ -84,8 +77,19 @@ private fun processRecharge(
     Log.d("PackagesScreen", "=== Processing M-Pesa Payment ===")
     Log.d("PackagesScreen", "Plan: ${plan.planName} (ID: ${plan.id})")
     Log.d("PackagesScreen", "Amount: ${plan.customerCost}")
-    Log.d("PackagesScreen", "[v0] Raw Phone: $rawPhone") // Added debug log
-    Log.d("PackagesScreen", "[v0] Formatted Phone: $formattedPhone") // Added debug log
+    Log.d("PackagesScreen", "[v0] Raw Phone: $rawPhone")
+    Log.d("PackagesScreen", "[v0] Formatted Phone: $formattedPhone")
+    Log.d("PackagesScreen", "[v0] Token (first 20 chars): ${token.take(20)}...")
+    Log.d("PackagesScreen", "[v0] Request Data:")
+    Log.d("PackagesScreen", "[v0]   rechargePlan: ${rechargeRequest.rechargePlan}")
+    Log.d("PackagesScreen", "[v0]   quantity: ${rechargeRequest.quantity}")
+    Log.d("PackagesScreen", "[v0]   rechargeType: ${rechargeRequest.rechargeType}")
+    Log.d("PackagesScreen", "[v0]   resetRecharge: ${rechargeRequest.resetRecharge}")
+    Log.d("PackagesScreen", "[v0]   contactPerson: ${rechargeRequest.contactPerson}")
+    Log.d("PackagesScreen", "[v0]   email: ${rechargeRequest.email}")
+    Log.d("PackagesScreen", "[v0]   phone: ${rechargeRequest.phone}")
+    Log.d("PackagesScreen", "[v0]   city: ${rechargeRequest.city}")
+    Log.d("PackagesScreen", "[v0]   zip: ${rechargeRequest.zip}")
 
     PackagesApiClient.instance.processMpesaPayment("Bearer $token", rechargeRequest)
         .enqueue(object : Callback<MpesaResponse> {
@@ -100,7 +104,6 @@ private fun processRecharge(
                     Log.d("PackagesScreen", "Status: ${mpesaResponse.status}")
                     Log.d("PackagesScreen", "Transaction ID: ${mpesaResponse.transactionId}")
 
-                    // Show success message
                     onError("M-Pesa payment initiated. Check your phone for the payment prompt.")
                 } else {
                     val errorBody = response.errorBody()?.string()
@@ -145,8 +148,6 @@ fun PackagesScreen() {
 
         Log.d("PackagesScreen", "=== Fetching Recharge Plans ===")
         Log.d("PackagesScreen", "User ID: $userId")
-        Log.d("PackagesScreen", "Token: ${token.take(20)}...")
-        Log.d("PackagesScreen", "Authorization Header: Bearer ${token.take(20)}...")
 
         PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
             .enqueue(object : Callback<RechargePlansResponse> {
@@ -162,16 +163,10 @@ fun PackagesScreen() {
                         currency = data.currency
                         Log.d("PackagesScreen", "✓ Successfully loaded ${plans.size} plans")
                         Log.d("PackagesScreen", "[v0] User's current planId: ${userDetail?.planId}")
-                        plans.forEach { plan ->
-                            val isActive = plan.id == userDetail?.planId
-                            Log.d("PackagesScreen", "[v0] Plan: ${plan.planName} (ID: ${plan.id}) - Active: $isActive")
-                        }
                     } else {
                         val errorBody = response.errorBody()?.string()
                         errorMessage = "Failed to load plans: ${response.code()}"
-                        Log.e("PackagesScreen", "✗ Error Response Code: ${response.code()}")
-                        Log.e("PackagesScreen", "✗ Error Message: ${response.message()}")
-                        Log.e("PackagesScreen", "✗ Error Body: $errorBody")
+                        Log.e("PackagesScreen", "✗ Error: $errorBody")
                     }
                 }
 
@@ -179,8 +174,6 @@ fun PackagesScreen() {
                     isLoading = false
                     errorMessage = "Network error: ${t.message}"
                     Log.e("PackagesScreen", "✗ Network Error: ${t.message}")
-                    Log.e("PackagesScreen", "✗ Error Type: ${t.javaClass.simpleName}")
-                    t.printStackTrace()
                 }
             })
     }
@@ -327,7 +320,7 @@ fun PackageCard(
                 )
                 if (isActive) {
                     Badge(
-                        containerColor = Color(0xFF4CAF50), // Green
+                        containerColor = Color(0xFF4CAF50),
                         contentColor = Color.White
                     ) {
                         Text("Active")
@@ -340,8 +333,8 @@ fun PackageCard(
             Text(
                 text = "$decodedCurrency ${plan.customerCost}",
                 style = MaterialTheme.typography.headlineSmall,
-                color = Color(0xFF42A5F5), // Light blue
-                fontWeight = FontWeight.Bold
+                color = Color(0xFF42A5F5),
+                fontWeight = FontWeight.Bold,
             )
 
             Button(
@@ -349,7 +342,7 @@ fun PackageCard(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isActive,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF42A5F5), // Light blue
+                    containerColor = Color(0xFF42A5F5),
                     contentColor = Color.White,
                     disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
                     disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant

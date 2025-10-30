@@ -1,9 +1,9 @@
 package com.example.nosteq
 
+import com.google.gson.annotations.SerializedName
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
-import com.google.gson.annotations.SerializedName
 import java.lang.reflect.Type
 
 data class LoginRequest(
@@ -85,6 +85,7 @@ class PaymentGatewayDeserializer : JsonDeserializer<PaymentGateway> {
         )
     }
 }
+
 data class PaymentGateway(
     val payu: Int,
     val atom: Int,
@@ -129,4 +130,18 @@ data class RechargeData(
     val txnRef: String,
     val amount: Int,
     val hotspotUrl: String
+)
+
+data class MpesaResponse(
+    val status: String,
+    val message: String?,
+    @SerializedName("transaction_id") val transactionId: String?,
+    @SerializedName("checkout_request_id") val checkoutRequestId: String?,
+    val data: MpesaData?
+)
+
+data class MpesaData(
+    val amount: Int,
+    val phone: String,
+    val reference: String?
 )

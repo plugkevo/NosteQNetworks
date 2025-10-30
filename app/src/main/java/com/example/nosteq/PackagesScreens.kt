@@ -32,6 +32,23 @@ fun String.decodeHtml(): String {
     return Html.fromHtml(this, Html.FROM_HTML_MODE_LEGACY).toString()
 }
 
+fun String.formatForMpesa(): String {
+    // Remove any spaces, dashes, or special characters
+    var cleaned = this.replace(Regex("[\\s\\-\$$\$$\\+]"), "")
+
+    // Remove leading zero if present
+    if (cleaned.startsWith("0")) {
+        cleaned = cleaned.substring(1)
+    }
+
+    // Add 254 country code if not present
+    if (!cleaned.startsWith("254")) {
+        cleaned = "254$cleaned"
+    }
+
+    return cleaned
+}
+
 private fun processRecharge(
     plan: Plan,
     userDetail: UserDetail,
@@ -49,6 +66,9 @@ private fun processRecharge(
         return
     }
 
+    val rawPhone = userDetail.userinfo.phone ?: ""
+    val formattedPhone = rawPhone.formatForMpesa()
+
     val rechargeRequest = RechargeRequest(
         rechargePlan = plan.id,
         quantity = 1,
@@ -56,48 +76,44 @@ private fun processRecharge(
         resetRecharge = false,
         contactPerson = userDetail.userinfo.contactPerson ?: "",
         email = userDetail.userinfo.email ?: "",
-        phone = userDetail.userinfo.phone ?: "",
+        phone = formattedPhone, // Using formatted phone number
         city = userDetail.userinfo.billingCity ?: "",
         zip = userDetail.userinfo.billingZip ?: ""
     )
 
-    Log.d("PackagesScreen", "=== Processing Recharge ===")
+    Log.d("PackagesScreen", "=== Processing M-Pesa Payment ===")
     Log.d("PackagesScreen", "Plan: ${plan.planName} (ID: ${plan.id})")
     Log.d("PackagesScreen", "Amount: ${plan.customerCost}")
+    Log.d("PackagesScreen", "[v0] Raw Phone: $rawPhone") // Added debug log
+    Log.d("PackagesScreen", "[v0] Formatted Phone: $formattedPhone") // Added debug log
 
-    PackagesApiClient.instance.processRecharge("Bearer $token", rechargeRequest)
-        .enqueue(object : Callback<RechargeResponse> {
+    PackagesApiClient.instance.processMpesaPayment("Bearer $token", rechargeRequest)
+        .enqueue(object : Callback<MpesaResponse> {
             override fun onResponse(
-                call: Call<RechargeResponse>,
-                response: Response<RechargeResponse>
+                call: Call<MpesaResponse>,
+                response: Response<MpesaResponse>
             ) {
                 onProcessing(false)
                 if (response.isSuccessful && response.body() != null) {
-                    val rechargeResponse = response.body()!!
-                    Log.d("PackagesScreen", "✓ Recharge processed successfully")
-                    Log.d("PackagesScreen", "Payment URL: ${rechargeResponse.paymentUrl}")
+                    val mpesaResponse = response.body()!!
+                    Log.d("PackagesScreen", "✓ M-Pesa payment initiated successfully")
+                    Log.d("PackagesScreen", "Status: ${mpesaResponse.status}")
+                    Log.d("PackagesScreen", "Transaction ID: ${mpesaResponse.transactionId}")
 
-                    // Open payment URL in browser
-                    val paymentUrl = rechargeResponse.paymentUrl ?: rechargeResponse.data?.hotspotUrl
-                    if (paymentUrl != null) {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paymentUrl))
-                        context.startActivity(intent)
-                    } else {
-                        onError("Payment URL not found in response")
-                        Log.e("PackagesScreen", "✗ No payment URL in response")
-                    }
+                    // Show success message
+                    onError("M-Pesa payment initiated. Check your phone for the payment prompt.")
                 } else {
                     val errorBody = response.errorBody()?.string()
                     onError("Payment failed: ${response.code()}")
-                    Log.e("PackagesScreen", "✗ Recharge Error: ${response.code()}")
+                    Log.e("PackagesScreen", "✗ M-Pesa Error: ${response.code()}")
                     Log.e("PackagesScreen", "✗ Error Body: $errorBody")
                 }
             }
 
-            override fun onFailure(call: Call<RechargeResponse>, t: Throwable) {
+            override fun onFailure(call: Call<MpesaResponse>, t: Throwable) {
                 onProcessing(false)
                 onError("Network error: ${t.message}")
-                Log.e("PackagesScreen", "✗ Recharge Network Error: ${t.message}")
+                Log.e("PackagesScreen", "✗ M-Pesa Network Error: ${t.message}")
                 t.printStackTrace()
             }
         })

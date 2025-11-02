@@ -201,8 +201,8 @@ fun AccountScreen() {
                         AccountInfoRow(
                             "Status",
                             when (userDetail?.data?.status) {
-                                1 -> "Active"
-                                0 -> "Inactive"
+                                0 -> "Active"
+                                1 -> "Inactive"
                                 else -> "Unknown"
                             }
                         )

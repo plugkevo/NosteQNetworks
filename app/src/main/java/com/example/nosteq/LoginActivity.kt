@@ -11,9 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.example.nosteq.ui.theme.NosteqTheme
-import com.nosteq.provider.ui.screens.LoginScreen
 import com.nosteq.provider.utils.PreferencesManager
-
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response

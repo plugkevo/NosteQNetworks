@@ -3,10 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Added storage permission for PDF downloads -->
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <!-- Added storage permission for PDF downloads -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -16,8 +17,12 @@
         android:roundIcon="@drawable/nosteq_app_logo"
         android:supportsRtl="true"
         android:theme="@style/Theme.Nosteq"
-        android:usesCleartextTraffic="true">>
-
+        android:usesCleartextTraffic="true">
+        <activity
+            android:name=".MpesaConfigScreen"
+            android:exported="false"
+            android:label="@string/title_activity_mpesa_config_screen"
+            android:theme="@style/Theme.Nosteq" />
         <activity
             android:name=".LoginActivity"
             android:exported="true"
@@ -29,13 +34,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.Nosteq"/>
-
+            android:theme="@style/Theme.Nosteq" />
     </application>
 
 </manifest>

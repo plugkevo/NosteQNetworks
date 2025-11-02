@@ -1,6 +1,8 @@
-package com.nosteq.provider.ui.screens
+package com.example.nosteq
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -20,7 +22,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.nosteq.ui.theme.NosteqTheme
 
 @Composable
 fun LoginScreen(
@@ -37,19 +38,22 @@ fun LoginScreen(
     onContactSupportClick: () -> Unit = {}
 ) {
     val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
+            .imePadding() // Adds padding when keyboard appears
+            .verticalScroll(scrollState) // Makes content scrollable
             .padding(24.dp),
-        contentAlignment = Alignment.Center
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 400.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Logo and Title
             Text(
@@ -224,23 +228,5 @@ fun LoginScreen(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun LoginScreenPreview() {
-    NosteqTheme {
-        LoginScreen(
-            username = "",
-            password = "",
-            passwordVisible = false,
-            isLoading = false,
-            errorMessage = null,
-            onUsernameChange = {},
-            onPasswordChange = {},
-            onPasswordVisibleChange = {},
-            onLoginClick = {}
-        )
     }
 }

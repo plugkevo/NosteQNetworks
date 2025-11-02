@@ -1,8 +1,6 @@
 package com.example.nosteq
 
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.text.Html
 import android.util.Log
 import androidx.compose.foundation.layout.*
@@ -17,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nosteq.provider.utils.PreferencesManager
+import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -26,106 +25,61 @@ fun String.decodeHtml(): String {
 }
 
 fun String.formatForMpesa(): String {
-    // Remove any spaces, dashes, or special characters
-    var cleaned = this.replace(Regex("[\\s\\-\$$\$$\\+]"), "")
-
-    // Remove leading zero if present
+    var cleaned = this.replace(Regex("[\\s\\-()\\+]"), "")
     if (cleaned.startsWith("0")) {
         cleaned = cleaned.substring(1)
     }
-
-    // Add 254 country code if not present
     if (!cleaned.startsWith("254")) {
         cleaned = "254$cleaned"
     }
-
     return cleaned
 }
 
-private fun processRecharge(
+private suspend fun processRechargeWithPhone(
     plan: Plan,
-    userDetail: UserDetail,
-    preferencesManager: PreferencesManager,
-    context: Context,
-    onProcessing: (Boolean) -> Unit,
-    onError: (String) -> Unit
-) {
-    onProcessing(true)
+    phoneNumber: String,
+    context: Context
+): Pair<Boolean, String> {
+    val mpesaConfig = MpesaConfigManager.getConfig(context)
 
-    val token = preferencesManager.getToken()
-    if (token == null) {
-        onProcessing(false)
-        onError("Authentication token not found")
-        return
+    if (!MpesaConfigManager.isConfigured(context)) {
+        return Pair(false, "M-Pesa not configured. Please configure M-Pesa settings first.")
     }
 
-    val rawPhone = userDetail.userinfo.phone ?: ""
-    val formattedPhone = rawPhone.formatForMpesa()
+    val formattedPhone = phoneNumber.formatForMpesa()
 
-    val rechargeRequest = RechargeRequest(
-        rechargePlan = plan.id,
-        quantity = 1,
-        rechargeType = 1,
-        resetRecharge = false,
-        contactPerson = userDetail.userinfo.contactPerson ?: "",
-        email = userDetail.userinfo.email ?: "",
-        phone = formattedPhone,
-        city = userDetail.userinfo.billingCity ?: "",
-        zip = userDetail.userinfo.billingZip ?: ""
-    )
+    val amount = plan.customerCost.toDouble().toInt()
 
     Log.d("PackagesScreen", "=== Processing M-Pesa Payment ===")
     Log.d("PackagesScreen", "Plan: ${plan.planName} (ID: ${plan.id})")
-    Log.d("PackagesScreen", "Amount: ${plan.customerCost}")
-    Log.d("PackagesScreen", "[v0] Raw Phone: $rawPhone")
+    Log.d("PackagesScreen", "Amount: $amount")
+    Log.d("PackagesScreen", "[v0] Raw Phone: $phoneNumber")
     Log.d("PackagesScreen", "[v0] Formatted Phone: $formattedPhone")
-    Log.d("PackagesScreen", "[v0] Token (first 20 chars): ${token.take(20)}...")
-    Log.d("PackagesScreen", "[v0] Request Data:")
-    Log.d("PackagesScreen", "[v0]   rechargePlan: ${rechargeRequest.rechargePlan}")
-    Log.d("PackagesScreen", "[v0]   quantity: ${rechargeRequest.quantity}")
-    Log.d("PackagesScreen", "[v0]   rechargeType: ${rechargeRequest.rechargeType}")
-    Log.d("PackagesScreen", "[v0]   resetRecharge: ${rechargeRequest.resetRecharge}")
-    Log.d("PackagesScreen", "[v0]   contactPerson: ${rechargeRequest.contactPerson}")
-    Log.d("PackagesScreen", "[v0]   email: ${rechargeRequest.email}")
-    Log.d("PackagesScreen", "[v0]   phone: ${rechargeRequest.phone}")
-    Log.d("PackagesScreen", "[v0]   city: ${rechargeRequest.city}")
-    Log.d("PackagesScreen", "[v0]   zip: ${rechargeRequest.zip}")
 
-    PackagesApiClient.instance.processMpesaPayment("Bearer $token", rechargeRequest)
-        .enqueue(object : Callback<MpesaResponse> {
-            override fun onResponse(
-                call: Call<MpesaResponse>,
-                response: Response<MpesaResponse>
-            ) {
-                onProcessing(false)
-                if (response.isSuccessful && response.body() != null) {
-                    val mpesaResponse = response.body()!!
-                    Log.d("PackagesScreen", "✓ M-Pesa payment initiated successfully")
-                    Log.d("PackagesScreen", "Status: ${mpesaResponse.status}")
-                    Log.d("PackagesScreen", "Transaction ID: ${mpesaResponse.transactionId}")
+    val mpesaManager = MpesaManager(mpesaConfig)
+    val response = mpesaManager.initiateStkPush(
+        phoneNumber = formattedPhone,
+        amount = amount.toString(),
+        accountReference = "Plan-${plan.id}",
+        transactionDesc = plan.planName
+    )
 
-                    onError("M-Pesa payment initiated. Check your phone for the payment prompt.")
-                } else {
-                    val errorBody = response.errorBody()?.string()
-                    onError("Payment failed: ${response.code()}")
-                    Log.e("PackagesScreen", "✗ M-Pesa Error: ${response.code()}")
-                    Log.e("PackagesScreen", "✗ Error Body: $errorBody")
-                }
-            }
-
-            override fun onFailure(call: Call<MpesaResponse>, t: Throwable) {
-                onProcessing(false)
-                onError("Network error: ${t.message}")
-                Log.e("PackagesScreen", "✗ M-Pesa Network Error: ${t.message}")
-                t.printStackTrace()
-            }
-        })
+    return if (response != null && response.responseCode == "0") {
+        Log.d("PackagesScreen", "[v0] ✓ STK Push sent successfully")
+        Log.d("PackagesScreen", "[v0] CheckoutRequestID: ${response.checkoutRequestID}")
+        Pair(true, "Payment request sent! Check your phone to complete the payment.")
+    } else {
+        val error = response?.errorMessage ?: response?.responseDescription ?: "Payment failed"
+        Log.e("PackagesScreen", "[v0] ✗ M-Pesa Error: $error")
+        Pair(false, "Payment failed: $error")
+    }
 }
 
 @Composable
 fun PackagesScreen() {
     val context = LocalContext.current
     val preferencesManager = remember { PreferencesManager(context) }
+    val coroutineScope = rememberCoroutineScope()
 
     var plans by remember { mutableStateOf<List<Plan>>(emptyList()) }
     var userDetail by remember { mutableStateOf<UserDetail?>(null) }
@@ -135,8 +89,17 @@ fun PackagesScreen() {
     var selectedPlan by remember { mutableStateOf<Plan?>(null) }
     var showPaymentDialog by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
+    var showConfigWarning by remember { mutableStateOf(false) }
+    var customPhoneNumber by remember { mutableStateOf("") }
+    var useCustomPhone by remember { mutableStateOf(false) }
+
+    var checkoutRequestID by remember { mutableStateOf<String?>(null) }
+    var showConfirmationDialog by remember { mutableStateOf(false) }
+    var isCheckingStatus by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        showConfigWarning = !MpesaConfigManager.isConfigured(context)
+
         val userId = preferencesManager.getUserId()
         val token = preferencesManager.getToken()
 
@@ -162,7 +125,6 @@ fun PackagesScreen() {
                         userDetail = data.user
                         currency = data.currency
                         Log.d("PackagesScreen", "✓ Successfully loaded ${plans.size} plans")
-                        Log.d("PackagesScreen", "[v0] User's current planId: ${userDetail?.planId}")
                     } else {
                         val errorBody = response.errorBody()?.string()
                         errorMessage = "Failed to load plans: ${response.code()}"
@@ -178,46 +140,207 @@ fun PackagesScreen() {
             })
     }
 
-    if (showPaymentDialog && selectedPlan != null) {
-        val decodedCurrency = currency.decodeHtml()
+    if (showConfirmationDialog && checkoutRequestID != null) {
         AlertDialog(
-            onDismissRequest = { showPaymentDialog = false },
-            title = { Text("Confirm Recharge") },
+            onDismissRequest = {
+                showConfirmationDialog = false
+                checkoutRequestID = null
+            },
+            title = { Text("Payment Sent") },
             text = {
-                Column {
-                    Text("Plan: ${selectedPlan!!.planName}")
-                    Text("Amount: $decodedCurrency ${selectedPlan!!.customerCost}")
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("An M-Pesa payment request has been sent to your phone.")
+                    Text("Please check your phone and enter your M-Pesa PIN to complete the payment.")
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("Proceed to payment?", fontWeight = FontWeight.Bold)
+                    Text(
+                        "After completing the payment, click 'Confirm Payment' to verify.",
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        showPaymentDialog = false
-                        processRecharge(
-                            plan = selectedPlan!!,
-                            userDetail = userDetail!!,
-                            preferencesManager = preferencesManager,
-                            context = context,
-                            onProcessing = { isProcessing = it },
-                            onError = { errorMessage = it }
+                        isCheckingStatus = true
+                        coroutineScope.launch {
+                            val mpesaConfig = MpesaConfigManager.getConfig(context)
+                            val mpesaManager = MpesaManager(mpesaConfig)
+                            val queryResponse = mpesaManager.queryStkPushStatus(checkoutRequestID!!)
+
+                            isCheckingStatus = false
+
+                            if (queryResponse != null) {
+                                // ResultCode "0" means success
+                                if (queryResponse.resultCode == "0") {
+                                    errorMessage = "✓ Payment successful! Your package has been activated."
+                                    showConfirmationDialog = false
+                                    checkoutRequestID = null
+                                    // TODO: Navigate to home page
+                                    // navController.navigate("home")
+                                } else {
+                                    // Payment failed or cancelled
+                                    val failureReason = queryResponse.resultDesc ?: "Payment was not completed"
+                                    errorMessage = "Payment failed: $failureReason. Please try again."
+                                    showConfirmationDialog = false
+                                    checkoutRequestID = null
+                                }
+                            } else {
+                                errorMessage = "Could not verify payment status. Please check your M-Pesa messages or try again."
+                            }
+                        }
+                    },
+                    enabled = !isCheckingStatus
+                ) {
+                    if (isCheckingStatus) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text("Confirm Payment")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showConfirmationDialog = false
+                        checkoutRequestID = null
+                    },
+                    enabled = !isCheckingStatus
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showPaymentDialog && selectedPlan != null) {
+        val decodedCurrency = currency.decodeHtml()
+        AlertDialog(
+            onDismissRequest = {
+                showPaymentDialog = false
+                useCustomPhone = false
+                customPhoneNumber = ""
+            },
+            title = { Text("Confirm Payment") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Plan: ${selectedPlan!!.planName}")
+                    Text("Amount: $decodedCurrency ${selectedPlan!!.customerCost}")
+
+                    HorizontalDivider()
+
+                    Text("Payment Phone Number", fontWeight = FontWeight.Bold)
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        RadioButton(
+                            selected = !useCustomPhone,
+                            onClick = { useCustomPhone = false }
+                        )
+                        Text(
+                            text = "My number: ${userDetail?.userinfo?.phone ?: "N/A"}",
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        RadioButton(
+                            selected = useCustomPhone,
+                            onClick = { useCustomPhone = true }
+                        )
+                        Text(
+                            text = "Different number",
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+
+                    if (useCustomPhone) {
+                        OutlinedTextField(
+                            value = customPhoneNumber,
+                            onValueChange = { customPhoneNumber = it },
+                            label = { Text("Phone Number") },
+                            placeholder = { Text("254712345678") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                        )
+                        Text(
+                            text = "Format: 254XXXXXXXXX",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "An M-Pesa payment request will be sent to the selected phone.",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val phoneToUse = if (useCustomPhone) {
+                            if (customPhoneNumber.isBlank()) {
+                                errorMessage = "Please enter a phone number"
+                                return@Button
+                            }
+                            customPhoneNumber
+                        } else {
+                            userDetail?.userinfo?.phone ?: ""
+                        }
+
+                        showPaymentDialog = false
+                        isProcessing = true
+                        coroutineScope.launch {
+                            val (success, message) = processRechargeWithPhone(
+                                plan = selectedPlan!!,
+                                phoneNumber = phoneToUse,
+                                context = context
+                            )
+                            isProcessing = false
+
+                            if (success) {
+                                // Extract CheckoutRequestID from the response
+                                // We need to modify processRechargeWithPhone to return it
+                                checkoutRequestID = "CheckoutRequestID" // Placeholder for actual extraction
+                                showConfirmationDialog = true
+                            } else {
+                                errorMessage = message
+                            }
+
+                            useCustomPhone = false
+                            customPhoneNumber = ""
+                        }
                     },
                     enabled = !isProcessing
                 ) {
                     if (isProcessing) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
+                            strokeWidth = 2.dp,
+                            color = Color.White
                         )
                     } else {
-                        Text("Confirm")
+                        Text("Pay with M-Pesa")
                     }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showPaymentDialog = false }) {
+                TextButton(onClick = {
+                    showPaymentDialog = false
+                    useCustomPhone = false
+                    customPhoneNumber = ""
+                }) {
                     Text("Cancel")
                 }
             }
@@ -236,6 +359,28 @@ fun PackagesScreen() {
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
+
+        if (showConfigWarning) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFFFF3CD)
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "⚠️ M-Pesa Not Configured",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF856404)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Please configure M-Pesa settings to enable payments.",
+                        color = Color(0xFF856404)
+                    )
+                }
+            }
+        }
 
         when {
             isLoading -> {

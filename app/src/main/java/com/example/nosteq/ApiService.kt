@@ -1,6 +1,17 @@
 package com.example.nosteq
 
 
+import com.example.nosteq.models.ChangePasswordRequest
+import com.example.nosteq.models.ChangePasswordResponse
+import com.example.nosteq.models.DashboardResponse
+import com.example.nosteq.models.InvoiceResponse
+import com.example.nosteq.models.LoginResponse
+import com.example.nosteq.models.OltListResponse
+import com.example.nosteq.models.OnuStatusResponse
+import com.example.nosteq.models.RebootResponse
+import com.example.nosteq.models.ReceiptResponse
+import com.example.nosteq.models.SpeedProfilesResponse
+import com.example.nosteq.models.UserResponse
 import retrofit2.Call
 import retrofit2.http.*
 

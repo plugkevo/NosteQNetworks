@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.nosteq.models.UserDetail
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
 import retrofit2.Call

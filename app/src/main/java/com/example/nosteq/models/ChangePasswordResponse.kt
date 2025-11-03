@@ -1,4 +1,4 @@
-package com.example.nosteq
+package com.example.nosteq.models
 
 data class ChangePasswordRequest(
     val currentPassword: String,

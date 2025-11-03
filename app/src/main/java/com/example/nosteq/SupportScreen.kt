@@ -1,31 +1,36 @@
 package com.example.nosteq
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.vector.ImageVector
 import compose.icons.FontAwesomeIcons
 import compose.icons.fontawesomeicons.Brands
 import compose.icons.fontawesomeicons.Solid
-import compose.icons.fontawesomeicons.brands.Whatsapp
 import compose.icons.fontawesomeicons.brands.Facebook
 import compose.icons.fontawesomeicons.brands.Tiktok
-import compose.icons.fontawesomeicons.solid.Phone as PhoneSolid
+import compose.icons.fontawesomeicons.brands.Whatsapp
 import compose.icons.fontawesomeicons.solid.Envelope
 import compose.icons.fontawesomeicons.solid.Phone
 
@@ -133,13 +138,13 @@ fun SupportScreen() {
         )
 
         FAQCard(
-            question = "How do I reset my router password?",
-            answer = "Navigate to Router Management and use the change password option."
+            question = "How do I reboot my router?",
+            answer = "Navigate to Router Management and use the reboot router option."
         )
 
         FAQCard(
             question = "What payment methods are accepted?",
-            answer = "We accept M-Pesa, bank transfers, and card payments."
+            answer = "We accept M-Pesa."
         )
     }
 }

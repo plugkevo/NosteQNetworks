@@ -11,4 +11,7 @@
     <string name="title_activity_support_screen">SupportScreen</string>
     <string name="title_activity_login_screen">LoginScreen</string>
     <string name="title_activity_mpesa_config_screen">MpesaConfigScreen</string>
+    <string name="title_activity_update_dialog">UpdateDialog</string>
+    <string name="apk_update_name">nosteq_V1.0.2</string>
+
 </resources>

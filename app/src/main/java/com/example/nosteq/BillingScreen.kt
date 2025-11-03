@@ -25,6 +25,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.nosteq.models.Invoice
+import com.example.nosteq.models.InvoiceResponse
+import com.example.nosteq.models.Receipt
+import com.example.nosteq.models.ReceiptResponse
 import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 import retrofit2.Call

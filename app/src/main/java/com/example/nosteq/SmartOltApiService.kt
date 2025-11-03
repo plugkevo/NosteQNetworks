@@ -2,6 +2,12 @@ package com.example.nosteq
 
 
 
+import com.example.nosteq.models.AllOnusDetailsResponse
+import com.example.nosteq.models.OltListResponse
+import com.example.nosteq.models.OnuDetailsResponse
+import com.example.nosteq.models.OnuStatusResponse
+import com.example.nosteq.models.RebootResponse
+import com.example.nosteq.models.SpeedProfilesResponse
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.Retrofit

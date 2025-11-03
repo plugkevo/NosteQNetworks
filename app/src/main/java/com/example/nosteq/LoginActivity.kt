@@ -2,7 +2,6 @@ package com.example.nosteq
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -10,12 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import com.example.nosteq.models.LoginResponse
 import com.example.nosteq.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-import kotlin.jvm.java
 
 class LoginActivity : ComponentActivity() {
     private lateinit var preferencesManager: PreferencesManager
@@ -23,7 +22,6 @@ class LoginActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-
 
         preferencesManager = PreferencesManager(this)
 
@@ -68,18 +66,15 @@ class LoginActivity : ComponentActivity() {
                                         ispCurrency = loginData.ispDetail.isp_currency
                                     )
 
-                                    Log.d("[v0]", "Login successful for user: ${loginData.user.username}")
                                     navigateToMain()
                                 } else {
                                     errorMessage = "Invalid username or password"
-                                    Log.e("[v0]", "Login failed: ${response.code()} - ${response.message()}")
                                 }
                             }
 
                             override fun onFailure(call: Call<LoginResponse>, t: Throwable) {
                                 isLoading = false
-                                errorMessage = "Network error: ${t.message}"
-                                Log.e("[v0]", "Login error: ${t.message}", t)
+                                errorMessage = "Network error"
                             }
                         })
                     }

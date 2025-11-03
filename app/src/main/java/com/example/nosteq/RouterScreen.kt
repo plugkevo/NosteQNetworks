@@ -18,6 +18,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.nosteq.models.Olt
+import com.example.nosteq.models.OnuDetails
+import com.example.nosteq.models.OnuStatus
 import com.example.nosteq.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch

@@ -1,5 +1,6 @@
 package com.example.nosteq
 
+import com.example.nosteq.models.UserDetail
 import com.google.gson.annotations.SerializedName
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
@@ -12,7 +13,7 @@ data class LoginRequest(
 )
 
 data class RechargePlansResponse(
-    val user: com.example.nosteq.UserDetail,
+    val user: UserDetail,
     val plan: List<Plan>,
     val tax: Tax,
     val roundOff: Boolean,

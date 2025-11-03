@@ -1,4 +1,4 @@
-package com.example.nosteq
+package com.example.nosteq.models
 
 data class InvoiceResponse(
     val data: List<Invoice>

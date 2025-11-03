@@ -21,6 +21,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.nosteq.models.ChangePasswordRequest
+import com.example.nosteq.models.ChangePasswordResponse
+import com.example.nosteq.models.UserResponse
 import com.example.nosteq.ui.theme.NosteqTheme
 
 import com.nosteq.provider.utils.PreferencesManager

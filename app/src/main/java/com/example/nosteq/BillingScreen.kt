@@ -55,7 +55,7 @@ fun BillingScreen() {
     val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     val toDate = dateFormat.format(Date())
     val calendar = Calendar.getInstance()
-    calendar.add(Calendar.MONTH, -6)
+    calendar.add(Calendar.MONTH, -12)
     val fromDate = dateFormat.format(calendar.time)
 
     LaunchedEffect(Unit) {
@@ -185,7 +185,7 @@ fun BillingScreen() {
                         0 -> {
                             // Invoices tab
                             Text(
-                                text = "Invoices (Last 6 Months)",
+                                text = "Invoices (Last 12 Months)",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -211,7 +211,7 @@ fun BillingScreen() {
                         1 -> {
                             // Receipts tab
                             Text(
-                                text = "Receipts (Last 6 Months)",
+                                text = "Receipts (Last 12 Months)",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )

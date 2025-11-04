@@ -2,7 +2,6 @@ package com.example.nosteq
 
 import android.content.Context
 import android.text.Html
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -48,14 +47,7 @@ private suspend fun processRechargeWithPhone(
     }
 
     val formattedPhone = phoneNumber.formatForMpesa()
-
     val amount = plan.customerCost.toDouble().toInt()
-
-    Log.d("PackagesScreen", "=== Processing M-Pesa Payment ===")
-    Log.d("PackagesScreen", "Plan: ${plan.planName} (ID: ${plan.id})")
-    Log.d("PackagesScreen", "Amount: $amount")
-    Log.d("PackagesScreen", "[v0] Raw Phone: $phoneNumber")
-    Log.d("PackagesScreen", "[v0] Formatted Phone: $formattedPhone")
 
     val mpesaManager = MpesaManager(mpesaConfig)
     val response = mpesaManager.initiateStkPush(
@@ -66,12 +58,9 @@ private suspend fun processRechargeWithPhone(
     )
 
     return if (response != null && response.responseCode == "0") {
-        Log.d("PackagesScreen", "[v0] ✓ STK Push sent successfully")
-        Log.d("PackagesScreen", "[v0] CheckoutRequestID: ${response.checkoutRequestID}")
         Pair(true, "Payment request sent! Check your phone to complete the payment.")
     } else {
         val error = response?.errorMessage ?: response?.responseDescription ?: "Payment failed"
-        Log.e("PackagesScreen", "[v0] ✗ M-Pesa Error: $error")
         Pair(false, "Payment failed: $error")
     }
 }
@@ -98,6 +87,9 @@ fun PackagesScreen() {
     var showConfirmationDialog by remember { mutableStateOf(false) }
     var isCheckingStatus by remember { mutableStateOf(false) }
 
+    var selectedTabIndex by remember { mutableStateOf(0) }
+    val tabs = listOf("Home", "Business")
+
     LaunchedEffect(Unit) {
         showConfigWarning = !MpesaConfigManager.isConfigured(context)
 
@@ -109,9 +101,6 @@ fun PackagesScreen() {
             isLoading = false
             return@LaunchedEffect
         }
-
-        Log.d("PackagesScreen", "=== Fetching Recharge Plans ===")
-        Log.d("PackagesScreen", "User ID: $userId")
 
         PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
             .enqueue(object : Callback<RechargePlansResponse> {
@@ -125,18 +114,14 @@ fun PackagesScreen() {
                         plans = data.plan
                         userDetail = data.user
                         currency = data.currency
-                        Log.d("PackagesScreen", "✓ Successfully loaded ${plans.size} plans")
                     } else {
-                        val errorBody = response.errorBody()?.string()
-                        errorMessage = "Failed to load plans: ${response.code()}"
-                        Log.e("PackagesScreen", "✗ Error: $errorBody")
+                        errorMessage = "Failed to load plans"
                     }
                 }
 
                 override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {
                     isLoading = false
-                    errorMessage = "Network error: ${t.message}"
-                    Log.e("PackagesScreen", "✗ Network Error: ${t.message}")
+                    errorMessage = "Network error. Please try again."
                 }
             })
     }
@@ -171,15 +156,11 @@ fun PackagesScreen() {
                             isCheckingStatus = false
 
                             if (queryResponse != null) {
-                                // ResultCode "0" means success
                                 if (queryResponse.resultCode == "0") {
-                                    errorMessage = "✓ Payment successful! Your package has been activated."
+                                    errorMessage = "Payment successful! Your package has been activated."
                                     showConfirmationDialog = false
                                     checkoutRequestID = null
-                                    // TODO: Navigate to home page
-                                    // navController.navigate("home")
                                 } else {
-                                    // Payment failed or cancelled
                                     val failureReason = queryResponse.resultDesc ?: "Payment was not completed"
                                     errorMessage = "Payment failed: $failureReason. Please try again."
                                     showConfirmationDialog = false
@@ -311,9 +292,7 @@ fun PackagesScreen() {
                             isProcessing = false
 
                             if (success) {
-                                // Extract CheckoutRequestID from the response
-                                // We need to modify processRechargeWithPhone to return it
-                                checkoutRequestID = "CheckoutRequestID" // Placeholder for actual extraction
+                                checkoutRequestID = "CheckoutRequestID"
                                 showConfirmationDialog = true
                             } else {
                                 errorMessage = message
@@ -349,82 +328,120 @@ fun PackagesScreen() {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.fillMaxSize()
     ) {
-        Text(
-            text = "Available Packages",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Available Packages",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
 
-        if (showConfigWarning) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFF3CD)
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "⚠️ M-Pesa Not Configured",
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF856404)
+            if (showConfigWarning) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFFFF3CD)
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Please configure M-Pesa settings to enable payments.",
-                        color = Color(0xFF856404)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "M-Pesa Not Configured",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF856404)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Please configure M-Pesa settings to enable payments.",
+                            color = Color(0xFF856404)
+                        )
+                    }
+                }
+            }
+
+            TabRow(
+                selectedTabIndex = selectedTabIndex,
+                containerColor = MaterialTheme.colorScheme.surface,
+
+            ) {
+                tabs.forEachIndexed { index, title ->
+                    Tab(
+                        selected = selectedTabIndex == index,
+                        onClick = { selectedTabIndex = index },
+                        text = {
+                            Text(
+                                text = title,
+                                fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
                     )
                 }
             }
         }
 
-        when {
-            isLoading -> {
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
-            }
-            errorMessage != null -> {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
-                    )
-                ) {
-                    Text(
-                        text = errorMessage!!,
-                        modifier = Modifier.padding(16.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
+                errorMessage != null -> {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = errorMessage!!,
+                            modifier = Modifier.padding(16.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 }
-            }
-            plans.isEmpty() -> {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "No packages available",
-                        modifier = Modifier.padding(16.dp)
-                    )
-                }
-            }
-            else -> {
-                plans.forEach { plan ->
-                    PackageCard(
-                        plan = plan,
-                        currency = currency,
-                        isActive = plan.id == userDetail?.planId,
-                        onSubscribe = {
-                            selectedPlan = plan
-                            showPaymentDialog = true
+                else -> {
+                    val filteredPlans = plans.filter { plan ->
+                        when (selectedTabIndex) {
+                            0 -> !plan.planName.contains("Business", ignoreCase = true) // Home packages
+                            1 -> plan.planName.contains("Business", ignoreCase = true) // Business packages
+                            else -> true
                         }
-                    )
+                    }
+
+                    if (filteredPlans.isEmpty()) {
+                        Card(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "No ${tabs[selectedTabIndex].lowercase()} packages available",
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    } else {
+                        filteredPlans.forEach { plan ->
+                            PackageCard(
+                                plan = plan,
+                                currency = currency,
+                                isActive = plan.id == userDetail?.planId,
+                                onSubscribe = {
+                                    selectedPlan = plan
+                                    showPaymentDialog = true
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -18,10 +18,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.nosteq.models.Olt
 import com.example.nosteq.models.OnuDetails
 import com.example.nosteq.models.OnuStatus
 import com.example.nosteq.ui.theme.NosteqTheme
+
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
 
@@ -35,8 +35,7 @@ fun RouterScreen(
 
     var onuExternalId by remember { mutableStateOf<String?>(null) }
     var onuStatus by remember { mutableStateOf<OnuStatus?>(null) }
-    var onuDetails by remember { mutableStateOf<OnuDetails?>(null) }
-    var olts by remember { mutableStateOf<List<Olt>>(emptyList()) }
+    var onuDetails: OnuDetails? by remember { mutableStateOf<OnuDetails?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
@@ -118,23 +117,23 @@ fun RouterScreen(
                 } else {
                     val errorBody = allOnusResponse.errorBody()?.string()
                     val statusCode = allOnusResponse.code()
-                    errorMessage = "Failed to fetch ONUs: ${allOnusResponse.message()}"
+                    errorMessage = if (statusCode == 403) {
+                        "Access forbidden. Please contact support."
+                    } else {
+                        "Failed to fetch device information. Please try again."
+                    }
 
                     Log.e("RouterScreen", "API error: ${allOnusResponse.message()}")
                     Log.e("RouterScreen", "Status code: $statusCode")
                     Log.e("RouterScreen", "Error body: $errorBody")
                     Log.e("RouterScreen", "SmartOLT Config - Subdomain: ${SmartOltConfig.SUBDOMAIN}, Base URL: ${SmartOltConfig.getBaseUrl()}")
 
-                    if (statusCode == 403) {
-                        errorMessage = "Access forbidden. Please check:\n1. API key is correct\n2. Device IP is whitelisted in SmartOLT"
-                    }
-
                     isLoading = false
                     return@LaunchedEffect
                 }
             }
         } catch (e: Exception) {
-            errorMessage = "Error finding ONU: ${e.message}"
+            errorMessage = "Error connecting to server. Please check your internet connection."
             Log.e("RouterScreen", "Exception while finding ONU", e)
             isLoading = false
             return@LaunchedEffect
@@ -188,21 +187,8 @@ fun RouterScreen(
                 Log.e("RouterScreen", "Error fetching ONU details", e)
             }
 
-            // Fetch OLTs
-            try {
-                val oltsResponse = SmartOltClient.apiService.getOlts(SmartOltConfig.API_KEY)
-                if (oltsResponse.isSuccessful && oltsResponse.body()?.status == true) {
-                    olts = oltsResponse.body()?.response ?: emptyList()
-                    Log.d("RouterScreen", "Successfully fetched ${olts.size} OLTs")
-                } else {
-                    Log.w("RouterScreen", "Failed to fetch OLTs: ${oltsResponse.message()}")
-                }
-            } catch (e: Exception) {
-                Log.e("RouterScreen", "Error fetching OLTs", e)
-            }
-
         } catch (e: Exception) {
-            errorMessage = "Failed to load data: ${e.message}"
+            errorMessage = "Failed to load data. Please try again."
             Log.e("RouterScreen", "Exception while loading data", e)
         } finally {
             isLoading = false
@@ -287,7 +273,7 @@ fun RouterScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "ONU Details",
+                            text = "Device Details",
                             style = MaterialTheme.typography.titleLarge
                         )
 
@@ -296,43 +282,6 @@ fun RouterScreen(
                         StatusRow("Name", details.name)
                         StatusRow("Serial Number", details.sn)
                         StatusRow("External ID", details.uniqueExternalId)
-                        StatusRow("OLT", details.oltName)
-                        StatusRow("ONU Type", details.onuTypeName)
-                        StatusRow("Zone", details.zoneName)
-                        StatusRow("Board/Port/ONU", "${details.board}/${details.port}/${details.onu}")
-                        details.mode?.let { StatusRow("Mode", it) }
-                        details.administrativeStatus?.let { StatusRow("Status", it) }
-                        details.odbName?.let { StatusRow("ODB", it) }
-
-                        // Service Ports
-                        details.servicePorts?.let { ports ->
-                            if (ports.isNotEmpty()) {
-                                Divider(modifier = Modifier.padding(vertical = 8.dp))
-                                Text(
-                                    text = "Service Ports",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-
-                                ports.forEach { port ->
-                                    Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = CardDefaults.cardColors(
-                                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                                        )
-                                    ) {
-                                        Column(
-                                            modifier = Modifier.padding(12.dp),
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            StatusRow("Port", port.servicePort)
-                                            StatusRow("VLAN", port.vlan)
-                                            StatusRow("Upload", port.uploadSpeed)
-                                            StatusRow("Download", port.downloadSpeed)
-                                        }
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -389,7 +338,7 @@ fun RouterScreen(
                         ) {
                             Icon(Icons.Default.Refresh, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Reboot Router")
+                            Text("Reboot Device")
                         }
                     }
                 }
@@ -415,7 +364,7 @@ fun RouterScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            listOf("hourly","daily","weekly","monthly","yearly").forEach { type ->
+                            listOf("hourly", "daily", "weekly", "monthly", "yearly").forEach { type ->
                                 FilterChip(
                                     selected = selectedGraphType == type,
                                     onClick = { selectedGraphType = type },
@@ -424,7 +373,6 @@ fun RouterScreen(
                             }
                         }
 
-                        // Graph image
                         val graphUrl = "${SmartOltConfig.getBaseUrl()}onu/get_onu_traffic_graph/$externalId/$selectedGraphType"
 
                         Log.d("RouterScreen", "Loading traffic graph: $graphUrl")
@@ -450,40 +398,6 @@ fun RouterScreen(
                                     Log.d("RouterScreen", "Successfully loaded traffic graph")
                                 }
                             )
-                        }
-                    }
-                }
-            }
-
-            // OLT Information Card
-            if (olts.isNotEmpty()) {
-                Card {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "OLT Information",
-                            style = MaterialTheme.typography.titleLarge
-                        )
-
-                        Divider()
-
-                        olts.forEach { olt ->
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                StatusRow("OLT ID", olt.id)
-                                StatusRow("Name", olt.name)
-                                StatusRow("Hardware", olt.oltHardwareVersion)
-                                StatusRow("IP Address", olt.ip)
-                                StatusRow("Telnet Port", olt.telnetPort)
-                                StatusRow("SNMP Port", olt.snmpPort)
-
-                                if (olts.indexOf(olt) < olts.size - 1) {
-                                    Divider(modifier = Modifier.padding(vertical = 8.dp))
-                                }
-                            }
                         }
                     }
                 }

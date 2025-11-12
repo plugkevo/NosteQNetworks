@@ -2,16 +2,14 @@ package com.example.nosteq
 
 import com.google.gson.GsonBuilder
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
-import okhttp3.Interceptor
-import okhttp3.Response as OkHttpResponse
-import android.util.Log
-import okio.Buffer
-import java.nio.charset.Charset
 import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.*
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.POST
+import retrofit2.http.Path
 import java.util.concurrent.TimeUnit
 
 // API Service interface for Packages endpoints
@@ -42,40 +40,7 @@ object PackagesApiClient {
     private const val BASE_URL = "https://nosteq.phpradius.com/index.php/api/"
 
     val instance: PackagesApiService by lazy {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
-        }
-
-        val customLoggingInterceptor = Interceptor { chain ->
-            val request = chain.request()
-
-            Log.d("PackagesApiClient", "========== M-PESA REQUEST DEBUG ==========")
-            Log.d("PackagesApiClient", "[v0] Full URL: ${request.url}")
-            Log.d("PackagesApiClient", "[v0] Method: ${request.method}")
-
-            // Log all headers
-            Log.d("PackagesApiClient", "[v0] Headers:")
-            request.headers.forEach { header ->
-                Log.d("PackagesApiClient", "[v0]   ${header.first}: ${header.second}")
-            }
-
-            // Log request body
-            request.body?.let { body ->
-                val buffer = Buffer()
-                body.writeTo(buffer)
-                val charset = body.contentType()?.charset(Charset.forName("UTF-8")) ?: Charset.forName("UTF-8")
-                val bodyString = buffer.readString(charset)
-                Log.d("PackagesApiClient", "[v0] Request Body: $bodyString")
-            }
-
-            Log.d("PackagesApiClient", "==========================================")
-
-            chain.proceed(request)
-        }
-
         val client = OkHttpClient.Builder()
-            .addInterceptor(customLoggingInterceptor)
-            .addInterceptor(loggingInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)

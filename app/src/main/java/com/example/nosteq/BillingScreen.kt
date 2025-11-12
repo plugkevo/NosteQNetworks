@@ -1,6 +1,5 @@
 package com.example.nosteq
 
-
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Paint
@@ -8,7 +7,6 @@ import android.graphics.pdf.PdfDocument
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,13 +21,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.nosteq.models.Invoice
 import com.example.nosteq.models.InvoiceResponse
 import com.example.nosteq.models.Receipt
 import com.example.nosteq.models.ReceiptResponse
-import com.example.nosteq.ui.theme.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 import retrofit2.Call
 import retrofit2.Callback
@@ -61,12 +57,10 @@ fun BillingScreen() {
     LaunchedEffect(Unit) {
         val token = prefsManager.getToken()
         if (token.isNullOrEmpty()) {
-            errorMessage = "No authentication token found"
+            errorMessage = "Please log in to view billing information"
             isLoading = false
             return@LaunchedEffect
         }
-
-        Log.d("[v0]", "Fetching invoices and receipts from $fromDate to $toDate")
 
         // Fetch invoices
         ApiClient.instance.getInvoices("Bearer $token", fromDate, toDate)
@@ -77,14 +71,13 @@ fun BillingScreen() {
                 ) {
                     if (response.isSuccessful) {
                         invoices = response.body()?.data ?: emptyList()
-                        Log.d("[v0]", "Loaded ${invoices.size} invoices")
                     } else {
-                        Log.e("[v0]", "Invoice error: ${response.errorBody()?.string()}")
+                        errorMessage = "Unable to load invoices. Please try again."
                     }
                 }
 
                 override fun onFailure(call: Call<InvoiceResponse>, t: Throwable) {
-                    Log.e("[v0]", "Invoice network error", t)
+                    errorMessage = "Network error. Please check your connection."
                 }
             })
 
@@ -98,17 +91,14 @@ fun BillingScreen() {
                     isLoading = false
                     if (response.isSuccessful) {
                         receipts = response.body()?.data ?: emptyList()
-                        Log.d("[v0]", "Loaded ${receipts.size} receipts")
                     } else {
-                        errorMessage = "Failed to load receipts (code ${response.code()})"
-                        Log.e("[v0]", "Receipt error: ${response.errorBody()?.string()}")
+                        errorMessage = "Unable to load receipts. Please try again."
                     }
                 }
 
                 override fun onFailure(call: Call<ReceiptResponse>, t: Throwable) {
                     isLoading = false
-                    errorMessage = "Network error: ${t.message}"
-                    Log.e("[v0]", "Receipt network error", t)
+                    errorMessage = "Network error. Please check your connection."
                 }
             })
     }
@@ -156,11 +146,11 @@ fun BillingScreen() {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Error",
+                            text = "Unable to Load Data",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        Text(errorMessage ?: "Unknown error")
+                        Text(errorMessage ?: "Something went wrong. Please try again.")
                         Button(
                             onClick = {
                                 isLoading = true
@@ -183,7 +173,6 @@ fun BillingScreen() {
                 ) {
                     when (selectedTab) {
                         0 -> {
-                            // Invoices tab
                             Text(
                                 text = "Invoices (Last 12 Months)",
                                 style = MaterialTheme.typography.titleMedium,
@@ -209,7 +198,6 @@ fun BillingScreen() {
                             }
                         }
                         1 -> {
-                            // Receipts tab
                             Text(
                                 text = "Receipts (Last 12 Months)",
                                 style = MaterialTheme.typography.titleMedium,
@@ -343,8 +331,6 @@ fun ReceiptCard(
 
 fun generateInvoicePdf(context: Context, invoice: Invoice) {
     try {
-        Log.d("[v0]", "Starting PDF generation for invoice ${invoice.invoiceNo}")
-
         val pdfDocument = PdfDocument()
         val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
         val page = pdfDocument.startPage(pageInfo)
@@ -402,9 +388,8 @@ fun generateInvoicePdf(context: Context, invoice: Invoice) {
                 }
                 pdfDocument.close()
                 Toast.makeText(context, "Invoice saved to Downloads", Toast.LENGTH_LONG).show()
-                Log.d("[v0]", "PDF saved successfully using MediaStore: $fileName")
             } else {
-                throw Exception("Failed to create file in Downloads")
+                throw Exception("Unable to save file")
             }
         } else {
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
@@ -419,20 +404,15 @@ fun generateInvoicePdf(context: Context, invoice: Invoice) {
             pdfDocument.close()
 
             Toast.makeText(context, "Invoice saved to Downloads", Toast.LENGTH_LONG).show()
-            Log.d("[v0]", "PDF saved successfully: ${file.absolutePath}")
         }
 
     } catch (e: Exception) {
-        Toast.makeText(context, "Error generating PDF: ${e.message}", Toast.LENGTH_LONG).show()
-        Log.e("[v0]", "PDF generation error: ${e.message}", e)
-        e.printStackTrace()
+        Toast.makeText(context, "Unable to save invoice. Please try again.", Toast.LENGTH_LONG).show()
     }
 }
 
 fun generateReceiptPdf(context: Context, receipt: Receipt) {
     try {
-        Log.d("[v0]", "Starting PDF generation for receipt ${receipt.receiptNo}")
-
         val pdfDocument = PdfDocument()
         val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
         val page = pdfDocument.startPage(pageInfo)
@@ -492,9 +472,8 @@ fun generateReceiptPdf(context: Context, receipt: Receipt) {
                 }
                 pdfDocument.close()
                 Toast.makeText(context, "Receipt saved to Downloads", Toast.LENGTH_LONG).show()
-                Log.d("[v0]", "PDF saved successfully using MediaStore: $fileName")
             } else {
-                throw Exception("Failed to create file in Downloads")
+                throw Exception("Unable to save file")
             }
         } else {
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
@@ -509,20 +488,9 @@ fun generateReceiptPdf(context: Context, receipt: Receipt) {
             pdfDocument.close()
 
             Toast.makeText(context, "Receipt saved to Downloads", Toast.LENGTH_LONG).show()
-            Log.d("[v0]", "PDF saved successfully: ${file.absolutePath}")
         }
 
     } catch (e: Exception) {
-        Toast.makeText(context, "Error generating PDF: ${e.message}", Toast.LENGTH_LONG).show()
-        Log.e("[v0]", "PDF generation error: ${e.message}", e)
-        e.printStackTrace()
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BillingScreenPreview() {
-    NosteqTheme {
-        BillingScreen()
+        Toast.makeText(context, "Unable to save receipt. Please try again.", Toast.LENGTH_LONG).show()
     }
 }

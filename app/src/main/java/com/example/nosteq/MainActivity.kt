@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 
 //theme in use
 import com.example.nosteq.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private lateinit var preferencesManager: PreferencesManager
@@ -22,6 +24,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         preferencesManager = PreferencesManager(this)
+
+        lifecycleScope.launch {
+            MpesaConfigManager.fetchConfigFromRemote(this@MainActivity)
+        }
+
 
         if (preferencesManager.isSessionExpired()) {
             preferencesManager.clearLoginData()

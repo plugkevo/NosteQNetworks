@@ -2,13 +2,17 @@ package com.example.nosteq
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.firebase.Firebase
+import com.google.firebase.remoteconfig.remoteConfig
+
+import kotlinx.coroutines.tasks.await
 
 data class MpesaConfig(
-    val businessShortCode: String = "4047627",
-    val consumerKey: String = "QjVwDxdGgaHrOqOcd42jIxmf67EH82xo",
-    val consumerSecret: String = "engf86E6qZtjokva",
-    val passkey: String = "467c2bfd8a1048ec4fff9c15151b181a6fb5de3b5498a0ea0ba9cd10fcdc788a",
-    val callbackUrl: String = "https://nosteq.phpradius.com/index.php/api/c2bConfirmation",
+    val businessShortCode: String = "",
+    val consumerKey: String = "",
+    val consumerSecret: String = "",
+    val passkey: String = "",
+    val callbackUrl: String = "",
     val environment: MpesaEnvironment = MpesaEnvironment.PRODUCTION
 )
 
@@ -26,8 +30,49 @@ object MpesaConfigManager {
     private const val KEY_CALLBACK_URL = "callback_url"
     private const val KEY_ENVIRONMENT = "environment"
 
+    private const val REMOTE_KEY_BUSINESS_SHORT_CODE = "mpesa_business_short_code"
+    private const val REMOTE_KEY_CONSUMER_KEY = "mpesa_consumer_key"
+    private const val REMOTE_KEY_CONSUMER_SECRET = "mpesa_consumer_secret"
+    private const val REMOTE_KEY_PASSKEY = "mpesa_passkey"
+    private const val REMOTE_KEY_CALLBACK_URL = "mpesa_callback_url"
+    private const val REMOTE_KEY_ENVIRONMENT = "mpesa_environment"
+
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
+    suspend fun fetchConfigFromRemote(context: Context): MpesaConfig? {
+        return try {
+            val remoteConfig = Firebase.remoteConfig
+
+            remoteConfig.setConfigSettingsAsync(
+                com.google.firebase.remoteconfig.FirebaseRemoteConfigSettings.Builder()
+                    .setMinimumFetchIntervalInSeconds(0)
+                    .build()
+            ).await()
+
+            remoteConfig.fetchAndActivate().await()
+
+            val config = MpesaConfig(
+                businessShortCode = remoteConfig.getString(REMOTE_KEY_BUSINESS_SHORT_CODE),
+                consumerKey = remoteConfig.getString(REMOTE_KEY_CONSUMER_KEY),
+                consumerSecret = remoteConfig.getString(REMOTE_KEY_CONSUMER_SECRET),
+                passkey = remoteConfig.getString(REMOTE_KEY_PASSKEY),
+                callbackUrl = remoteConfig.getString(REMOTE_KEY_CALLBACK_URL),
+                environment = try {
+                    MpesaEnvironment.valueOf(remoteConfig.getString(REMOTE_KEY_ENVIRONMENT))
+                } catch (e: Exception) {
+                    MpesaEnvironment.PRODUCTION
+                }
+            )
+
+            if (config.businessShortCode.isNotEmpty()) {
+                saveConfig(context, config)
+            }
+            config
+        } catch (e: Exception) {
+            null
+        }
     }
 
     fun saveConfig(context: Context, config: MpesaConfig) {
@@ -46,11 +91,11 @@ object MpesaConfigManager {
         val prefs = getPrefs(context)
 
         return MpesaConfig(
-            businessShortCode = prefs.getString(KEY_BUSINESS_SHORT_CODE, "4047627") ?: "4047627",
-            consumerKey = prefs.getString(KEY_CONSUMER_KEY, "QjVwDxdGgaHrOqOcd42jIxmf67EH82xo") ?: "QjVwDxdGgaHrOqOcd42jIxmf67EH82xo",
-            consumerSecret = prefs.getString(KEY_CONSUMER_SECRET, "engf86E6qZtjokva") ?: "engf86E6qZtjokva",
-            passkey = prefs.getString(KEY_PASSKEY, "467c2bfd8a1048ec4fff9c15151b181a6fb5de3b5498a0ea0ba9cd10fcdc788a") ?: "467c2bfd8a1048ec4fff9c15151b181a6fb5de3b5498a0ea0ba9cd10fcdc788a",
-            callbackUrl = prefs.getString(KEY_CALLBACK_URL, "https://nosteq.phpradius.com/index.php/api/c2bConfirmation") ?: "https://nosteq.phpradius.com/index.php/api/c2bConfirmation",
+            businessShortCode = prefs.getString(KEY_BUSINESS_SHORT_CODE, "") ?: "",
+            consumerKey = prefs.getString(KEY_CONSUMER_KEY, "") ?: "",
+            consumerSecret = prefs.getString(KEY_CONSUMER_SECRET, "") ?: "",
+            passkey = prefs.getString(KEY_PASSKEY, "") ?: "",
+            callbackUrl = prefs.getString(KEY_CALLBACK_URL, "") ?: "",
             environment = try {
                 MpesaEnvironment.valueOf(prefs.getString(KEY_ENVIRONMENT, "PRODUCTION") ?: "PRODUCTION")
             } catch (e: Exception) {

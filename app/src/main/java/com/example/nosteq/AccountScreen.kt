@@ -1,9 +1,6 @@
 package com.example.nosteq
 
-
-
 import android.content.Intent
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -25,12 +22,10 @@ import com.example.nosteq.models.ChangePasswordRequest
 import com.example.nosteq.models.ChangePasswordResponse
 import com.example.nosteq.models.UserResponse
 import com.example.nosteq.ui.theme.NosteqTheme
-
 import com.nosteq.provider.utils.PreferencesManager
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
-
 
 @Composable
 fun AccountScreen() {
@@ -54,29 +49,24 @@ fun AccountScreen() {
     LaunchedEffect(Unit) {
         val token = preferencesManager.getToken()
         if (token.isNullOrEmpty()) {
-            errorMessage = "No authentication token found"
+            errorMessage = "Please log in to view account details"
             isLoading = false
             return@LaunchedEffect
         }
-
-        Log.d("[v0]", "Fetching user details with token: $token")
 
         ApiClient.instance.getUserDetails("Bearer $token").enqueue(object : Callback<UserResponse> {
             override fun onResponse(call: Call<UserResponse>, response: Response<UserResponse>) {
                 isLoading = false
                 if (response.isSuccessful) {
                     userDetail = response.body()
-                    Log.d("[v0]", "User details loaded successfully")
                 } else {
-                    errorMessage = "Failed to load user details (code ${response.code()})"
-                    Log.e("[v0]", "Error: ${response.errorBody()?.string()}")
+                    errorMessage = "Unable to load account details. Please try again."
                 }
             }
 
             override fun onFailure(call: Call<UserResponse>, t: Throwable) {
                 isLoading = false
-                errorMessage = "Network error: ${t.message}"
-                Log.e("[v0]", "Network error", t)
+                errorMessage = "Network error. Please check your connection and try again."
             }
         })
     }
@@ -88,12 +78,12 @@ fun AccountScreen() {
         }
 
         if (newPassword != confirmPassword) {
-            passwordChangeError = "New password and confirm password do not match"
+            passwordChangeError = "Passwords do not match"
             return
         }
 
         if (newPassword.length < 6) {
-            passwordChangeError = "New password must be at least 6 characters"
+            passwordChangeError = "Password must be at least 6 characters"
             return
         }
 
@@ -103,7 +93,7 @@ fun AccountScreen() {
 
         val token = preferencesManager.getToken()
         if (token.isNullOrEmpty()) {
-            passwordChangeError = "No authentication token found"
+            passwordChangeError = "Please log in to change password"
             isChangingPassword = false
             return
         }
@@ -118,21 +108,18 @@ fun AccountScreen() {
             override fun onResponse(call: Call<ChangePasswordResponse>, response: Response<ChangePasswordResponse>) {
                 isChangingPassword = false
                 if (response.isSuccessful) {
-                    passwordChangeMessage = response.body()?.message ?: "Password changed successfully"
-                    // Clear password fields
+                    passwordChangeMessage = "Password changed successfully"
                     currentPassword = ""
                     newPassword = ""
                     confirmPassword = ""
                 } else {
-                    passwordChangeError = "Failed to change password (code ${response.code()})"
-                    Log.e("[v0]", "Error: ${response.errorBody()?.string()}")
+                    passwordChangeError = "Unable to change password. Please check your current password and try again."
                 }
             }
 
             override fun onFailure(call: Call<ChangePasswordResponse>, t: Throwable) {
                 isChangingPassword = false
-                passwordChangeError = "Network error: ${t.message}"
-                Log.e("[v0]", "Network error", t)
+                passwordChangeError = "Network error. Please check your connection and try again."
             }
         })
     }
@@ -273,7 +260,6 @@ fun AccountScreen() {
                             fontWeight = FontWeight.Bold
                         )
 
-                        // Current Password Field
                         OutlinedTextField(
                             value = currentPassword,
                             onValueChange = {
@@ -295,7 +281,6 @@ fun AccountScreen() {
                             enabled = !isChangingPassword
                         )
 
-                        // New Password Field
                         OutlinedTextField(
                             value = newPassword,
                             onValueChange = {
@@ -317,7 +302,6 @@ fun AccountScreen() {
                             enabled = !isChangingPassword
                         )
 
-                        // Confirm Password Field
                         OutlinedTextField(
                             value = confirmPassword,
                             onValueChange = {
@@ -339,7 +323,6 @@ fun AccountScreen() {
                             enabled = !isChangingPassword
                         )
 
-                        // Error Message
                         if (passwordChangeError != null) {
                             Text(
                                 text = passwordChangeError ?: "",
@@ -348,7 +331,6 @@ fun AccountScreen() {
                             )
                         }
 
-                        // Success Message
                         if (passwordChangeMessage != null) {
                             Text(
                                 text = passwordChangeMessage ?: "",
@@ -357,7 +339,6 @@ fun AccountScreen() {
                             )
                         }
 
-                        // Change Password Button
                         Button(
                             onClick = { changePassword() },
                             modifier = Modifier.fillMaxWidth(),
@@ -423,4 +404,3 @@ fun AccountScreenPreview() {
         AccountScreen()
     }
 }
-

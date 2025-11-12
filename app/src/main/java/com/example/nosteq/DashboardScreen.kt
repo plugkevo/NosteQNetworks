@@ -1,7 +1,5 @@
 package com.example.nosteq
 
-
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -39,42 +37,27 @@ fun DashboardScreen(navController: NavController) {
 
     LaunchedEffect(Unit) {
         val token = prefsManager.getToken()
-        Log.d("[v0]", "=== Dashboard API Call Debug ===")
-        Log.d("[v0]", "Token retrieved: $token")
-        Log.d("[v0]", "Token is null: ${token == null}")
-        Log.d("[v0]", "Token is empty: ${token?.isEmpty()}")
-        Log.d("[v0]", "Token length: ${token?.length}")
 
         if (token != null) {
-            Log.d("[v0]", "Making API call to getDashboard with token: $token")
             ApiClient.instance.getDashboard("Bearer $token").enqueue(object : Callback<DashboardResponse> {
                 override fun onResponse(call: Call<DashboardResponse>, response: Response<DashboardResponse>) {
                     isLoading = false
-                    Log.d("[v0]", "=== API Response ===")
-                    Log.d("[v0]", "Response code: ${response.code()}")
-                    Log.d("[v0]", "Response message: ${response.message()}")
-                    Log.d("[v0]", "Response successful: ${response.isSuccessful}")
 
                     if (response.isSuccessful) {
-                        Log.d("[v0]", "Response body: ${response.body()}")
                         dashboardData = response.body()
                     } else {
-                        val errorBody = response.errorBody()?.string()
-                        Log.e("[v0]", "Response error body: $errorBody")
-                        errorMessage = "Failed to load dashboard data (Code: ${response.code()})"
+                        errorMessage = "Unable to load dashboard. Please try again later."
                     }
                 }
 
                 override fun onFailure(call: Call<DashboardResponse>, t: Throwable) {
                     isLoading = false
-                    Log.e("[v0]", "API call failed: ${t.message}", t)
-                    errorMessage = "Network error: ${t.message}"
+                    errorMessage = "Network error. Please check your connection and try again."
                 }
             })
         } else {
             isLoading = false
-            Log.e("[v0]", "Token is null - user not authenticated")
-            errorMessage = "Not authenticated"
+            errorMessage = "Please log in to view dashboard"
         }
     }
 
@@ -98,13 +81,12 @@ fun DashboardScreen(navController: NavController) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = errorMessage ?: "Unknown error",
+                    text = errorMessage ?: "Something went wrong",
                     color = MaterialTheme.colorScheme.error
                 )
                 Button(onClick = {
                     isLoading = true
                     errorMessage = null
-                    // Retry logic would go here
                 }) {
                     Text("Retry")
                 }

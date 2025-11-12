@@ -1,6 +1,5 @@
 package com.example.nosteq
 
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,7 +34,7 @@ fun RouterScreen(
 
     var onuExternalId by remember { mutableStateOf<String?>(null) }
     var onuStatus by remember { mutableStateOf<OnuStatus?>(null) }
-    var onuDetails: OnuDetails? by remember { mutableStateOf<OnuDetails?>(null) }
+    var onuDetails by remember { mutableStateOf<OnuDetails?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
@@ -45,37 +44,22 @@ fun RouterScreen(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(username) {
-        // Validate username
         if (username.isBlank()) {
-            errorMessage = "Username not found. Please log in again."
-            Log.e("RouterScreen", "Username is blank")
+            errorMessage = "Please log in again"
             return@LaunchedEffect
         }
 
-        // Validate SmartOLT configuration
-        if (SmartOltConfig.SUBDOMAIN == "YOUR_SUBDOMAIN_HERE" ||
-            SmartOltConfig.API_KEY == "YOUR_API_KEY_HERE") {
-            errorMessage = "SmartOLT not configured. Please contact support."
-            Log.e("RouterScreen", "SmartOLT credentials not configured")
-            return@LaunchedEffect
-        }
+
 
         isLoading = true
         errorMessage = null
 
-        Log.d("RouterScreen", "Starting ONU lookup for username: $username")
-
         try {
-            // Check if we already have a cached ONU external ID
             val cachedId = preferencesManager.getOnuExternalId()
 
             if (cachedId != null) {
                 onuExternalId = cachedId
-                Log.d("RouterScreen", "Using cached ONU external ID: $cachedId")
             } else {
-                Log.d("RouterScreen", "No cached ONU ID found, fetching from SmartOLT API...")
-
-                // Fetch all ONUs and find the one matching the username
                 val allOnusResponse = SmartOltClient.apiService.getAllOnusDetails(
                     apiKey = SmartOltConfig.API_KEY
                 )
@@ -83,58 +67,32 @@ fun RouterScreen(
                 if (allOnusResponse.isSuccessful && allOnusResponse.body()?.status == true) {
                     val allOnus = allOnusResponse.body()?.onus ?: emptyList()
 
-                    Log.d("RouterScreen", "Fetched ${allOnus.size} ONUs from SmartOLT")
-                    Log.d("RouterScreen", "Searching for username: $username")
-
-                    // Log all usernames for debugging
-                    allOnus.forEach { onu ->
-                        Log.d("RouterScreen", "ONU: ${onu.name}, Username: ${onu.username}")
-                    }
-
-                    // Find ONU where username matches the logged-in user's username
                     val matchingOnu = allOnus.firstOrNull { onu ->
                         onu.username?.equals(username, ignoreCase = true) == true
                     }
 
                     if (matchingOnu != null) {
                         onuExternalId = matchingOnu.uniqueExternalId
-                        Log.d("RouterScreen", "✓ Found matching ONU!")
-                        Log.d("RouterScreen", "  - ONU Name: ${matchingOnu.name}")
-                        Log.d("RouterScreen", "  - Username: ${matchingOnu.username}")
-                        Log.d("RouterScreen", "  - ONU External ID: ${matchingOnu.uniqueExternalId}")
-                        Log.d("RouterScreen", "  - ONU Serial: ${matchingOnu.sn}")
-
-                        // Cache the external ID for future use
                         preferencesManager.saveOnuExternalId(matchingOnu.uniqueExternalId)
-                        Log.d("RouterScreen", "Cached ONU external ID for future use")
                     } else {
-                        errorMessage = "No ONU found for your account. Please contact support."
-                        Log.e("RouterScreen", "✗ No matching ONU found for username: $username")
-                        Log.e("RouterScreen", "Available usernames: ${allOnus.mapNotNull { it.username }.joinToString()}")
+                        errorMessage = "No device found for your account. Please contact support"
                         isLoading = false
                         return@LaunchedEffect
                     }
                 } else {
-                    val errorBody = allOnusResponse.errorBody()?.string()
                     val statusCode = allOnusResponse.code()
                     errorMessage = if (statusCode == 403) {
-                        "Access forbidden. Please contact support."
+                        "Access denied. Please contact support"
                     } else {
-                        "Failed to fetch device information. Please try again."
+                        "Unable to load device information. Please try again"
                     }
-
-                    Log.e("RouterScreen", "API error: ${allOnusResponse.message()}")
-                    Log.e("RouterScreen", "Status code: $statusCode")
-                    Log.e("RouterScreen", "Error body: $errorBody")
-                    Log.e("RouterScreen", "SmartOLT Config - Subdomain: ${SmartOltConfig.SUBDOMAIN}, Base URL: ${SmartOltConfig.getBaseUrl()}")
 
                     isLoading = false
                     return@LaunchedEffect
                 }
             }
         } catch (e: Exception) {
-            errorMessage = "Error connecting to server. Please check your internet connection."
-            Log.e("RouterScreen", "Exception while finding ONU", e)
+            errorMessage = "Network error. Please check your connection and try again"
             isLoading = false
             return@LaunchedEffect
         }
@@ -143,13 +101,10 @@ fun RouterScreen(
     LaunchedEffect(onuExternalId) {
         if (onuExternalId == null) return@LaunchedEffect
 
-        Log.d("RouterScreen", "Fetching ONU data using external ID: $onuExternalId")
-
         isLoading = true
         errorMessage = null
 
         try {
-            // Fetch ONU details first
             try {
                 val detailsResponse = SmartOltClient.apiService.getOnuDetails(
                     onuExternalId = onuExternalId!!,
@@ -158,9 +113,7 @@ fun RouterScreen(
 
                 if (detailsResponse.isSuccessful && detailsResponse.body()?.status == true) {
                     onuDetails = detailsResponse.body()?.onuDetails
-                    Log.d("RouterScreen", "Successfully fetched ONU details")
 
-                    // Now fetch ONU status using the OLT ID, board, and port from onuDetails
                     onuDetails?.let { details ->
                         try {
                             val statusResponse = SmartOltClient.apiService.getOnuStatuses(
@@ -172,34 +125,25 @@ fun RouterScreen(
 
                             if (statusResponse.isSuccessful && statusResponse.body()?.status == true) {
                                 onuStatus = statusResponse.body()?.response?.firstOrNull()
-                                Log.d("RouterScreen", "Successfully fetched ONU status")
-                            } else {
-                                Log.w("RouterScreen", "Failed to fetch ONU status: ${statusResponse.message()}")
                             }
                         } catch (e: Exception) {
-                            Log.e("RouterScreen", "Error fetching ONU status", e)
+                            // Silently handle status fetch error
                         }
                     }
-                } else {
-                    Log.w("RouterScreen", "Failed to fetch ONU details: ${detailsResponse.message()}")
                 }
             } catch (e: Exception) {
-                Log.e("RouterScreen", "Error fetching ONU details", e)
+                // Silently handle details fetch error
             }
 
         } catch (e: Exception) {
-            errorMessage = "Failed to load data. Please try again."
-            Log.e("RouterScreen", "Exception while loading data", e)
+            errorMessage = "Unable to load device data. Please try again"
         } finally {
             isLoading = false
         }
     }
 
-    // Reboot function
     fun rebootOnu() {
         scope.launch {
-            Log.d("RouterScreen", "Attempting to reboot ONU: $onuExternalId")
-
             try {
                 val response = SmartOltClient.apiService.rebootOnu(
                     onuExternalId = onuExternalId!!,
@@ -207,22 +151,19 @@ fun RouterScreen(
                 )
 
                 if (response.isSuccessful && response.body()?.status == true) {
-                    Log.d("RouterScreen", "✓ Reboot command sent successfully")
                     snackbarHostState.showSnackbar(
                         message = "Device reboot command sent successfully",
                         duration = SnackbarDuration.Short
                     )
                 } else {
-                    Log.e("RouterScreen", "✗ Reboot failed: ${response.message()}")
                     snackbarHostState.showSnackbar(
-                        message = "Failed to reboot device",
+                        message = "Unable to reboot device. Please try again",
                         duration = SnackbarDuration.Short
                     )
                 }
             } catch (e: Exception) {
-                Log.e("RouterScreen", "Exception during reboot", e)
                 snackbarHostState.showSnackbar(
-                    message = "Error: ${e.message}",
+                    message = "Network error. Please check your connection",
                     duration = SnackbarDuration.Short
                 )
             }
@@ -265,7 +206,6 @@ fun RouterScreen(
                 }
             }
 
-            // ONU Details Card
             onuDetails?.let { details ->
                 Card {
                     Column(
@@ -277,7 +217,7 @@ fun RouterScreen(
                             style = MaterialTheme.typography.titleLarge
                         )
 
-                        Divider()
+                        HorizontalDivider()
 
                         StatusRow("Name", details.name)
                         StatusRow("Serial Number", details.sn)
@@ -286,7 +226,6 @@ fun RouterScreen(
                 }
             }
 
-            // ONU Status Card
             onuStatus?.let { status ->
                 Card {
                     Column(
@@ -306,9 +245,9 @@ fun RouterScreen(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp)),
                                 color = if (status.status.equals("online", ignoreCase = true))
-                                    Color(0xFF4CAF50) // Green for online
+                                    Color(0xFF4CAF50)
                                 else
-                                    Color(0xFFEF5350) // Red for offline
+                                    Color(0xFFEF5350)
                             ) {
                                 Text(
                                     text = status.status.uppercase(),
@@ -319,7 +258,7 @@ fun RouterScreen(
                             }
                         }
 
-                        Divider()
+                        HorizontalDivider()
 
                         StatusRow("Name", status.name)
                         status.signal?.let { StatusRow("Signal", it) }
@@ -344,7 +283,6 @@ fun RouterScreen(
                 }
             }
 
-            // Traffic Graph Card
             onuExternalId?.let { externalId ->
                 Card {
                     Column(
@@ -356,9 +294,8 @@ fun RouterScreen(
                             style = MaterialTheme.typography.titleLarge
                         )
 
-                        Divider()
+                        HorizontalDivider()
 
-                        // Graph type selector
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -375,8 +312,6 @@ fun RouterScreen(
 
                         val graphUrl = "${SmartOltConfig.getBaseUrl()}onu/get_onu_traffic_graph/$externalId/$selectedGraphType"
 
-                        Log.d("RouterScreen", "Loading traffic graph: $graphUrl")
-
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -390,13 +325,7 @@ fun RouterScreen(
                                     .crossfade(true)
                                     .build(),
                                 contentDescription = "$selectedGraphType traffic graph",
-                                modifier = Modifier.fillMaxSize(),
-                                onError = { error ->
-                                    Log.e("RouterScreen", "Failed to load traffic graph: ${error.result.throwable.message}")
-                                },
-                                onSuccess = {
-                                    Log.d("RouterScreen", "Successfully loaded traffic graph")
-                                }
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
                     }
@@ -405,7 +334,6 @@ fun RouterScreen(
         }
     }
 
-    // Reboot Confirmation Dialog
     if (showRebootDialog) {
         AlertDialog(
             onDismissRequest = { showRebootDialog = false },

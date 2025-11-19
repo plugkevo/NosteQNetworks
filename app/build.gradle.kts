@@ -7,26 +7,34 @@ plugins {
 }
 
 android {
-    namespace = "com.example.nosteq"
+    namespace = "com.kevann.nosteq"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.nosteq"
+        applicationId = "com.kevann.nosteq"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.0.6"
+        versionCode = 7
+        versionName = "1.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            debugSymbolLevel = "FULL"
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            isMinifyEnabled = false
         }
     }
     compileOptions {
@@ -52,6 +60,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.firebase.config)
+    implementation(libs.firebase.inappmessaging.display)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

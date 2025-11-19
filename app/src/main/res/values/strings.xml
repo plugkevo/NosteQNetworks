@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">NosteQ</string>
+    <string name="app_name">NosteQ Networks</string>
     <string name="title_activity_login_activityy">LoginActivityy</string>
     <string name="title_activity_login">LoginActivity</string>
     <string name="title_activity_home_screen">HomeScreen</string>

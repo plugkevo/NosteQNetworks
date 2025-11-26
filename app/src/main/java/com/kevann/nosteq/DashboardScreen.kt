@@ -26,6 +26,7 @@ import retrofit2.Response
 import java.text.SimpleDateFormat
 import java.util.*
 
+
 @Composable
 fun DashboardScreen(navController: NavController) {
     val context = LocalContext.current
@@ -254,7 +255,15 @@ fun DashboardScreen(navController: NavController) {
                 icon = Icons.Filled.AccountBox,
                 title = "Billing",
                 modifier = Modifier.weight(1f),
-                onClick = { navController.navigate("billing") }
+                onClick = {
+                    navController.navigate("billing") {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
             )
         }
 

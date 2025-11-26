@@ -1,11 +1,25 @@
 package com.kevann.nosteq
 
 import android.content.Context
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -17,7 +31,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.nosteq.provider.utils.PreferencesManager
-import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,36 +40,6 @@ fun HomeScreen(context: Context? = null) {
     val localContext = context ?: LocalContext.current
     val preferencesManager = remember { PreferencesManager(localContext) }
     val username = preferencesManager.getUsername() ?: ""
-
-    var showUpdateDialog by remember { mutableStateOf(false) }
-    var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
-    var isForceUpdate by remember { mutableStateOf(false) }
-    var isDownloading by remember { mutableStateOf(false) }
-    var downloadProgress by remember { mutableStateOf<DownloadProgress?>(null) }
-    val scope = rememberCoroutineScope()
-
-    LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                val remoteVersion = VersionChecker.getRemoteVersion()
-                if (remoteVersion != null) {
-                    val installedVersion = VersionChecker.getInstalledVersion(localContext)
-
-                    val updateAvailable = VersionChecker.isUpdateNeeded(installedVersion, remoteVersion.currentVersion)
-                    val forceUpdateRequired = VersionChecker.isUpdateNeeded(installedVersion, remoteVersion.minRequiredVersion)
-
-                    // Only show dialog if update is actually available
-                    if (updateAvailable) {
-                        updateInfo = remoteVersion
-                        isForceUpdate = forceUpdateRequired
-                        showUpdateDialog = true
-                    }
-                }
-            } catch (e: Exception) {
-                // silently fail for production
-            }
-        }
-    }
 
     Scaffold(
         topBar = {
@@ -104,35 +87,6 @@ fun HomeScreen(context: Context? = null) {
             composable("support") { SupportScreen() }
             composable("router") { RouterScreen(username = username) }
         }
-    }
-
-    if (showUpdateDialog && updateInfo != null) {
-        UpdatePromptDialog(
-            updateInfo = updateInfo!!,
-            isForceUpdate = isForceUpdate,
-            isDownloading = isDownloading,
-            downloadProgress = downloadProgress,
-            onUpdateClick = {
-                isDownloading = true
-                scope.launch {
-                    try {
-                        ApkDownloader.downloadApk(localContext, updateInfo!!.apkDownloadUrl)
-                            .collect { progress ->
-                                downloadProgress = progress
-                                if (progress.isComplete) {
-                                    isDownloading = false
-                                }
-                            }
-                    } catch (e: Exception) {
-                        isDownloading = false
-                        // silently fail for production
-                    }
-                }
-            },
-            onSkipClick = {
-                showUpdateDialog = false
-            }
-        )
     }
 }
 

@@ -40,9 +40,16 @@ private suspend fun processRechargeWithPhone(
     phoneNumber: String,
     context: Context
 ): Pair<Boolean, String> {
+    AppLogger.logInfo("PackagesScreen: Initiating payment", mapOf(
+        "planId" to plan.id.toString(),
+        "planName" to plan.planName,
+        "amount" to plan.customerCost
+    ))
+
     val mpesaConfig = MpesaConfigManager.getConfig(context)
 
     if (!MpesaConfigManager.isConfigured(context)) {
+        AppLogger.logError("PackagesScreen: M-Pesa not configured")
         return Pair(false, "M-Pesa not configured. Please configure M-Pesa settings first.")
     }
 
@@ -57,7 +64,15 @@ private suspend fun processRechargeWithPhone(
         transactionDesc = plan.planName
     )
 
-    return if (response != null && response.responseCode == "0") {
+    val success = response != null && response.responseCode == "0"
+    AppLogger.logApiCall(
+        endpoint = "mpesa/stkpush",
+        success = success,
+        responseCode = response?.responseCode?.toIntOrNull(),
+        errorMessage = if (!success) (response?.errorMessage ?: response?.responseDescription) else null
+    )
+
+    return if (success) {
         Pair(true, "Payment request sent! Check your phone to complete the payment.")
     } else {
         val error = response?.errorMessage ?: response?.responseDescription ?: "Payment failed"
@@ -109,6 +124,12 @@ fun PackagesScreen() {
                     response: Response<RechargePlansResponse>
                 ) {
                     isLoading = false
+                    AppLogger.logApiCall(
+                        endpoint = "getRechargePlans",
+                        success = response.isSuccessful,
+                        responseCode = response.code()
+                    )
+
                     if (response.isSuccessful && response.body() != null) {
                         val data = response.body()!!
                         plans = data.plan
@@ -122,6 +143,7 @@ fun PackagesScreen() {
                 override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {
                     isLoading = false
                     errorMessage = "Network error. Please try again."
+                    AppLogger.logError("PackagesScreen: Failed to load plans", t)
                 }
             })
     }
@@ -149,11 +171,22 @@ fun PackagesScreen() {
                     onClick = {
                         isCheckingStatus = true
                         coroutineScope.launch {
+                            AppLogger.logInfo("PackagesScreen: Checking payment status", mapOf(
+                                "checkoutRequestID" to checkoutRequestID!!
+                            ))
+
                             val mpesaConfig = MpesaConfigManager.getConfig(context)
                             val mpesaManager = MpesaManager(mpesaConfig)
                             val queryResponse = mpesaManager.queryStkPushStatus(checkoutRequestID!!)
 
                             isCheckingStatus = false
+
+                            AppLogger.logApiCall(
+                                endpoint = "mpesa/stkquery",
+                                success = queryResponse?.resultCode == "0",
+                                responseCode = queryResponse?.resultCode?.toIntOrNull(),
+                                errorMessage = queryResponse?.resultDesc
+                            )
 
                             if (queryResponse != null) {
                                 if (queryResponse.resultCode == "0") {
@@ -365,7 +398,7 @@ fun PackagesScreen() {
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = MaterialTheme.colorScheme.surface,
-
+                contentColor = Color(0xFF42A5F5)
             ) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
@@ -416,8 +449,8 @@ fun PackagesScreen() {
                 else -> {
                     val filteredPlans = plans.filter { plan ->
                         when (selectedTabIndex) {
-                            0 -> !plan.planName.contains("Business", ignoreCase = true) // Home packages
-                            1 -> plan.planName.contains("Business", ignoreCase = true) // Business packages
+                            0 -> !plan.planName.contains("business", ignoreCase = true) // Home packages
+                            1 -> plan.planName.contains("business", ignoreCase = true) // Business packages
                             else -> true
                         }
                     }

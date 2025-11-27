@@ -3,7 +3,8 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.google.gms.google.services)
-    
+    alias(libs.plugins.google.firebase.crashlytics)
+
 }
 
 android {
@@ -14,8 +15,8 @@ android {
         applicationId = "com.kevann.nosteq"
         minSdk = 24
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.0.11"
+        versionCode = 13
+        versionName = "1.0.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -61,6 +62,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.firebase.config)
     implementation(libs.firebase.inappmessaging.display)
+    implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.messaging)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

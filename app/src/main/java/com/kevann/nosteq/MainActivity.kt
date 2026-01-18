@@ -2,6 +2,7 @@ package com.kevann.nosteq
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -10,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import com.google.firebase.messaging.FirebaseMessaging
 
 //theme in use
 import com.kevann.nosteq.ui.theme.NosteqTheme
@@ -29,6 +31,7 @@ class MainActivity : ComponentActivity() {
             MpesaConfigManager.fetchConfigFromRemote(this@MainActivity)
         }
 
+        retrieveFCMToken()
 
         if (preferencesManager.isSessionExpired()) {
             preferencesManager.clearLoginData()
@@ -48,11 +51,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (preferencesManager.isSessionExpired()) {
-            preferencesManager.clearLoginData()
-            navigateToLogin()
+    private fun retrieveFCMToken() {
+        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                AppLogger.logError("FCM Token", task.exception)
+                return@addOnCompleteListener
+            }
+
+            val token = task.result
+            AppLogger.logInfo("FCM Token Retrieved", mapOf("token" to token))
+            Log.d("FCM_TOKEN", "Firebase Messaging Token: $token")
         }
     }
 
@@ -63,4 +71,5 @@ class MainActivity : ComponentActivity() {
         finish()
     }
 }
+
 

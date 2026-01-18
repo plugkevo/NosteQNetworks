@@ -15,8 +15,8 @@ android {
         applicationId = "com.kevann.nosteq"
         minSdk = 24
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.0.13"
+        versionCode = 16
+        versionName = "1.0.16"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

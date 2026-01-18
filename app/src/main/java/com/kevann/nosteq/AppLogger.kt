@@ -1,16 +1,22 @@
 package com.kevann.nosteq
 
-
 import android.util.Log
-import com.google.firebase.crashlytics.BuildConfig
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 object AppLogger {
     private const val TAG = "NosteqApp"
 
+    private val isDebug = try {
+        Class.forName("${AppLogger::class.java.`package`?.name}.BuildConfig")
+            .getField("DEBUG")
+            .getBoolean(null)
+    } catch (e: Exception) {
+        false
+    }
+
     fun logInfo(message: String, details: Map<String, String> = emptyMap()) {
         // Log locally in debug builds
-        if (BuildConfig.DEBUG) {
+        if (isDebug) {
             Log.d(TAG, message)
         }
 
@@ -25,8 +31,12 @@ object AppLogger {
 
     fun logError(message: String, error: Throwable? = null, details: Map<String, String> = emptyMap()) {
         // Log locally in debug builds
-        if (BuildConfig.DEBUG) {
-            Log.e(TAG, message, error)
+        if (isDebug) {
+            if (error != null) {
+                Log.e(TAG, message, error)
+            } else {
+                Log.e(TAG, message)
+            }
         }
 
         // Send to Crashlytics in all builds
@@ -35,7 +45,9 @@ object AppLogger {
             details.forEach { (key, value) ->
                 setCustomKey(key, value)
             }
-            error?.let { recordException(it) }
+            if (error != null) {
+                recordException(error)
+            }
         }
     }
 
@@ -44,13 +56,17 @@ object AppLogger {
             "endpoint" to endpoint,
             "success" to success.toString()
         )
-        responseCode?.let { details["response_code"] = it.toString() }
-        errorMessage?.let { details["error"] = it }
+        if (responseCode != null) {
+            details["response_code"] = responseCode.toString()
+        }
+        if (errorMessage != null) {
+            details["error"] = errorMessage
+        }
 
         val message = if (success) {
             "API Success: $endpoint"
         } else {
-            "API Failed: $endpoint - $errorMessage"
+            "API Failed: $endpoint${if (errorMessage != null) " - $errorMessage" else ""}"
         }
 
         if (success) {

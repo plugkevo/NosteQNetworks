@@ -8,15 +8,15 @@ plugins {
 }
 
 android {
-    namespace = "com.kevann.nosteq"
+    namespace = "com.kevannTechnologies.nosteqCustomers"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.kevann.nosteq"
+        applicationId = "com.kevannTechnologies.nosteqCustomers"
         minSdk = 24
         targetSdk = 36
-        versionCode = 16
-        versionName = "1.0.16"
+        versionCode = 1
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

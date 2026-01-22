@@ -22,8 +22,8 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="com.kevann.nosteq" />
-                  <option name="mobileSdkAppId" value="1:527610271047:android:50f0395808ea893ee62862" />
+                  <option name="appId" value="com.kevannTechnologies.nosteqCustomers" />
+                  <option name="mobileSdkAppId" value="1:527610271047:android:929d46377778b924e62862" />
                   <option name="projectId" value="nosteqapk" />
                   <option name="projectNumber" value="527610271047" />
                 </ConnectionSetting>

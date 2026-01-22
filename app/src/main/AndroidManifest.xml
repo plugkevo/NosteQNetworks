@@ -31,7 +31,7 @@
             android:label="@string/title_activity_mpesa_config_screen"
             android:theme="@style/Theme.Nosteq" />
         <activity
-            android:name=".LoginActivity"
+            android:name="com.kevannTechnologies.nosteqCustomers.LoginActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Nosteq">
@@ -42,7 +42,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".MainActivity"
+            android:name="com.kevannTechnologies.nosteqCustomers.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Nosteq" />

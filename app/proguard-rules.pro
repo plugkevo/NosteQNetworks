@@ -10,11 +10,11 @@
 -keepattributes EnclosingMethod
 -keepattributes InnerClasses
 
--keep class com.kevann.nosteq.** { *; }
+-keep class com.kevannTechnologies.nosteqCustomers.** { *; }
 -keep class com.example.nosteq.** { *; }
 -keep class com.nosteq.provider.** { *; }
 
--keepclassmembers class com.kevann.nosteq.** { *; }
+-keepclassmembers class com.kevannTechnologies.nosteqCustomers.** { *; }
 -keepclassmembers class com.example.nosteq.** { *; }
 -keepclassmembers class com.nosteq.provider.** { *; }
 
@@ -24,7 +24,7 @@
 }
 
 # Keep all interfaces completely intact
--keep interface com.kevann.nosteq.** { *; }
+-keep interface com.kevannTechnologies.nosteqCustomers.** { *; }
 -keep interface com.example.nosteq.** { *; }
 -keep interface com.nosteq.provider.** { *; }
 

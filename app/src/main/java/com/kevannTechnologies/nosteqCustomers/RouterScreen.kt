@@ -51,12 +51,7 @@ fun RouterScreen(
             return@LaunchedEffect
         }
 
-        if (SmartOltConfig.SUBDOMAIN == "YOUR_SUBDOMAIN_HERE" ||
-            SmartOltConfig.API_KEY == "YOUR_API_KEY_HERE") {
-            errorMessage = "Service not configured. Please contact support"
-            AppLogger.logError("RouterScreen: SmartOLT not configured")
-            return@LaunchedEffect
-        }
+
 
         isLoading = true
         errorMessage = null

@@ -9,14 +9,24 @@
 -keepattributes RuntimeInvisibleParameterAnnotations
 -keepattributes EnclosingMethod
 -keepattributes InnerClasses
+-keepattributes Exceptions
 
--keep class com.kevannTechnologies.nosteqCustomers.** { *; }
--keep class com.example.nosteq.** { *; }
--keep class com.nosteq.provider.** { *; }
+# Keep ALL app packages - no obfuscation at all
+-keep,allowoptimization class com.kevann.nosteq.** { *; }
+-keep,allowoptimization class com.example.nosteq.** { *; }
+-keep,allowoptimization class com.nosteq.provider.** { *; }
+-keep,allowoptimization class com.kevannTechnologies.nosteqCustomers.** { *; }
 
--keepclassmembers class com.kevannTechnologies.nosteqCustomers.** { *; }
+-keepclassmembers class com.kevann.nosteq.** { *; }
 -keepclassmembers class com.example.nosteq.** { *; }
 -keepclassmembers class com.nosteq.provider.** { *; }
+-keepclassmembers class com.kevannTechnologies.nosteqCustomers.** { *; }
+
+# Keep class names - no renaming
+-keepnames class com.kevann.nosteq.**
+-keepnames class com.example.nosteq.**
+-keepnames class com.nosteq.provider.**
+-keepnames class com.kevannTechnologies.nosteqCustomers.**
 
 # Keep all fields with SerializedName annotation
 -keepclassmembers class * {
@@ -24,23 +34,37 @@
 }
 
 # Keep all interfaces completely intact
--keep interface com.kevannTechnologies.nosteqCustomers.** { *; }
+-keep interface com.kevann.nosteq.** { *; }
 -keep interface com.example.nosteq.** { *; }
 -keep interface com.nosteq.provider.** { *; }
+-keep interface com.kevannTechnologies.nosteqCustomers.** { *; }
 
+# ========== RETROFIT RULES ==========
 -keep class retrofit2.** { *; }
 -keep interface retrofit2.** { *; }
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }
+
+# Keep Retrofit service interfaces with full signatures
+-keep,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+
+# Retrofit Call and Response - DO NOT obfuscate
+-keep class retrofit2.Call { *; }
+-keep class retrofit2.Response { *; }
+-keep class retrofit2.Callback { *; }
+
+# Keep generic signatures for Retrofit
 -keepclassmembers,allowshrinking,allowobfuscation interface * {
     @retrofit2.http.* <methods>;
 }
 
-# Prevent obfuscation of Retrofit service methods
--keep,allowobfuscation,allowshrinking interface retrofit2.Call
--keep,allowobfuscation,allowshrinking class retrofit2.Response
--keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+# Kotlin Coroutines with Retrofit
+-keep class kotlin.coroutines.Continuation { *; }
+-keep class kotlin.coroutines.** { *; }
+-keepclassmembers class kotlin.coroutines.** { *; }
 
 -keep class okhttp3.** { *; }
 -keep interface okhttp3.** { *; }
@@ -114,6 +138,40 @@
 # Keep companion objects
 -keepclassmembers class * {
     *** Companion;
+}
+
+# ========== SPECIFIC MODEL CLASSES ==========
+# SmartOLT API Models - explicitly keep all fields
+-keep class com.nosteq.provider.network.models.** { *; }
+-keepclassmembers class com.nosteq.provider.network.models.** { *; }
+-keepnames class com.nosteq.provider.network.models.**
+
+# Keep SmartOLT service and config
+-keep class com.nosteq.provider.network.SmartOltApiService { *; }
+-keep class com.nosteq.provider.network.SmartOltClient { *; }
+-keep class com.nosteq.provider.network.SmartOltConfig { *; }
+-keep interface com.nosteq.provider.network.SmartOltApiService { *; }
+
+# Keep OnuDetails, OnuStatus, etc with all fields
+-keepclassmembers class com.nosteq.provider.network.models.OnuDetails {
+    <fields>;
+    <init>(...);
+}
+-keepclassmembers class com.nosteq.provider.network.models.OnuDetailsItem {
+    <fields>;
+    <init>(...);
+}
+-keepclassmembers class com.nosteq.provider.network.models.OnuStatus {
+    <fields>;
+    <init>(...);
+}
+-keepclassmembers class com.nosteq.provider.network.models.AllOnusDetailsResponse {
+    <fields>;
+    <init>(...);
+}
+-keepclassmembers class com.nosteq.provider.network.models.OnuDetailsResponse {
+    <fields>;
+    <init>(...);
 }
 
 # Remove logging in release builds

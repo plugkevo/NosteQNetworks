@@ -1,6 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
 
+import com.kevannTechnologies.nosteqCustomers.models.AllOnusDetailsResponse
 import com.kevannTechnologies.nosteqCustomers.models.ChangePasswordRequest
 import com.kevannTechnologies.nosteqCustomers.models.ChangePasswordResponse
 import com.kevannTechnologies.nosteqCustomers.models.DashboardResponse
@@ -14,6 +15,7 @@ import com.kevannTechnologies.nosteqCustomers.models.ReceiptResponse
 import com.kevannTechnologies.nosteqCustomers.models.SpeedProfilesResponse
 import com.kevannTechnologies.nosteqCustomers.models.UserResponse
 import retrofit2.Call
+import retrofit2.Response
 import retrofit2.http.*
 
 interface ApiService {
@@ -93,4 +95,6 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Body rechargeRequest: RechargeRequest
     ): Call<RechargeResponse>
+
+
 }

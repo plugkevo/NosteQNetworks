@@ -70,6 +70,11 @@ interface SmartOltApiService {
         @Path("graph_type") graphType: String,
         @Header("X-Token") apiKey: String
     ): Response<ResponseBody>
+    @GET("onu/get_onus_details_by_sn/{onu_sn}")
+    suspend fun getOnuDetailsBySn(
+        @Path("onu_sn") sn: String,
+        @Header("X-Token") apiKey: String
+    ): Response<AllOnusDetailsResponse>
 }
 
 object SmartOltClient {

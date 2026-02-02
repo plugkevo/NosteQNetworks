@@ -75,7 +75,7 @@ data class OnuDetails(
     @SerializedName("onu_type_id") val onuTypeId: String,
     @SerializedName("onu_type_name") val onuTypeName: String,
     @SerializedName("zone_id") val zoneId: String,
-    @SerializedName("zone_name") val zoneName: String,
+    @SerializedName("zone_name") val zoneName: String?,
     val address: String?,
     @SerializedName("odb_name") val odbName: String?,
     val mode: String?,

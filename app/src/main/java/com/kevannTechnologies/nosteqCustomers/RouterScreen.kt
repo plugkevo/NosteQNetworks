@@ -25,6 +25,7 @@ import com.kevannTechnologies.nosteqCustomers.models.OnuStatus
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
 
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RouterScreen(
@@ -34,6 +35,7 @@ fun RouterScreen(
     val preferencesManager = remember { PreferencesManager(context) }
 
     var onuExternalId by remember { mutableStateOf<String?>(null) }
+    var onuSerialNumber by remember { mutableStateOf<String?>(null) }
     var onuStatus by remember { mutableStateOf<OnuStatus?>(null) }
     var onuDetails by remember { mutableStateOf<OnuDetails?>(null) }
     var isLoading by remember { mutableStateOf(false) }
@@ -85,10 +87,12 @@ fun RouterScreen(
 
                     if (matchingOnu != null) {
                         onuExternalId = matchingOnu.uniqueExternalId
+                        onuSerialNumber = matchingOnu.sn
                         preferencesManager.saveOnuExternalId(matchingOnu.uniqueExternalId)
                         AppLogger.logInfo("RouterScreen: ONU found", mapOf(
                             "username" to username,
-                            "onuExternalId" to matchingOnu.uniqueExternalId
+                            "onuExternalId" to matchingOnu.uniqueExternalId,
+                            "onuSerialNumber" to matchingOnu.sn
                         ))
                     } else {
                         errorMessage = "No device found for your account. Please contact support"
@@ -113,6 +117,119 @@ fun RouterScreen(
             AppLogger.logError("RouterScreen: Exception fetching ONU list", e, mapOf("username" to username))
             isLoading = false
             return@LaunchedEffect
+        }
+    }
+
+    LaunchedEffect(onuSerialNumber) {
+        if (onuSerialNumber == null) return@LaunchedEffect
+
+        isLoading = true
+        errorMessage = null
+
+        try {
+            try {
+                android.util.Log.d("RouterScreen", "[v0] Fetching ONU details by SN: $onuSerialNumber")
+                AppLogger.logInfo("RouterScreen: Fetching ONU details by SN", mapOf("onuSerialNumber" to onuSerialNumber!!))
+
+                val detailsResponse = SmartOltClient.apiService.getOnuDetailsBySn(
+                    sn = onuSerialNumber!!,
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                android.util.Log.d("RouterScreen", "[v0] getOnuDetailsBySn response code: ${detailsResponse.code()}")
+                AppLogger.logApiCall(
+                    endpoint = "getOnuDetailsBySn",
+                    success = detailsResponse.isSuccessful,
+                    responseCode = detailsResponse.code()
+                )
+
+                if (detailsResponse.isSuccessful && detailsResponse.body()?.status == true) {
+                    val onuList = detailsResponse.body()?.onus ?: emptyList()
+                    onuDetails = onuList.firstOrNull()?.let { onu ->
+                        OnuDetails(
+                            name = onu.name,
+                            sn = onu.sn,
+                            uniqueExternalId = onu.uniqueExternalId,
+                            oltId = onu.oltId,
+                            oltName = onu.oltName,
+                            board = onu.board,
+                            port = onu.port,
+                            onu = onu.onu,
+                            onuTypeId = "",
+                            onuTypeName = onu.onuTypeName ?: "Unknown",
+                            zoneId = "",
+                            zoneName = onu.zoneName,
+                            address = onu.address,
+                            odbName = onu.odbName,
+                            mode = null,
+                            wanMode = null,
+                            ipAddress = null,
+                            subnetMask = null,
+                            defaultGateway = null,
+                            dns1 = null,
+                            dns2 = null,
+                            username = onu.username,
+                            password = null,
+                            catv = null,
+                            administrativeStatus = null,
+                            servicePorts = null
+                        )
+                    }
+                    android.util.Log.d("RouterScreen", "[v0] ONU details retrieved successfully")
+
+                    onuDetails?.let { details ->
+                        try {
+                            android.util.Log.d("RouterScreen", "[v0] Fetching ONU status for olt_id=${details.oltId}, board=${details.board}, port=${details.port}")
+
+                            val statusResponse = SmartOltClient.apiService.getOnuStatuses(
+                                apiKey = SmartOltConfig.API_KEY,
+                                oltId = details.oltId.toIntOrNull(),
+                                board = details.board.toIntOrNull(),
+                                port = details.port.toIntOrNull()
+                            )
+
+                            android.util.Log.d("RouterScreen", "[v0] getOnuStatuses response code: ${statusResponse.code()}")
+                            AppLogger.logApiCall(
+                                endpoint = "getOnuStatuses",
+                                success = statusResponse.isSuccessful,
+                                responseCode = statusResponse.code()
+                            )
+
+                            if (statusResponse.isSuccessful && statusResponse.body()?.status == true) {
+                                onuStatus = statusResponse.body()?.response?.firstOrNull()
+                                android.util.Log.d("RouterScreen", "[v0] ONU status retrieved: ${onuStatus?.status}")
+                            } else {
+                                android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU status: ${statusResponse.code()}")
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU status: ${e.message}", e)
+                            AppLogger.logError("RouterScreen: Failed to fetch ONU status", e)
+                        }
+                    }
+                } else {
+                    val statusCode = detailsResponse.code()
+                    android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU details: $statusCode")
+                    errorMessage = if (statusCode == 403) {
+                        "Access denied. Please contact support"
+                    } else if (statusCode == 400) {
+                        "Invalid device serial number. Please contact support"
+                    } else {
+                        "Unable to load device information. Please try again"
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("RouterScreen", "[v0] Exception fetching ONU details: ${e.message}", e)
+                android.util.Log.e("RouterScreen", "[v0] Exception type: ${e.javaClass.simpleName}")
+                errorMessage = "Network error. Please check your connection and try again"
+                AppLogger.logError("RouterScreen: Exception fetching ONU details by SN", e, mapOf("onuSerialNumber" to onuSerialNumber!!))
+            }
+
+        } catch (e: Exception) {
+            android.util.Log.e("RouterScreen", "[v0] Unexpected error: ${e.message}", e)
+            errorMessage = "Unable to load device data. Please try again"
+            AppLogger.logError("RouterScreen: Unexpected error loading device data", e)
+        } finally {
+            isLoading = false
         }
     }
 

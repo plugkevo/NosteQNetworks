@@ -186,9 +186,13 @@ class MpesaManager(private val config: MpesaConfig) {
                 response.body()
             } else {
                 val errorBody = response.errorBody()?.string()
-                android.util.Log.e("MpesaManager", "[v0] STK Push Error: ${response.code()}")
-                android.util.Log.e("MpesaManager", "[v0] Error Body: $errorBody")
-                null
+                android.util.Log.e("MpesaManager", "[v0] STK Push Error Code: ${response.code()}")
+                android.util.Log.e("MpesaManager", "[v0] Raw Response from Safaricom: $errorBody")
+
+                // This will map the Safaricom error message back to the UI
+                response.body()?.copy(errorMessage = errorBody) ?: MpesaStkPushResponse(
+                    null, null, response.code().toString(), null, null, null, errorBody
+                )
             }
         } catch (e: Exception) {
             android.util.Log.e("MpesaManager", "[v0] STK Push Exception: ${e.message}")

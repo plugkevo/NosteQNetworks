@@ -1,4 +1,4 @@
-package com.kevannTechnologies.nosteqCustomers
+package com.kevannTechnologies.nosteqCustomers.models
 
 import com.kevannTechnologies.nosteqCustomers.models.UserDetail
 import com.google.gson.annotations.SerializedName
@@ -128,9 +128,9 @@ data class RechargeResponse(
 )
 
 data class RechargeData(
-    val txnRef: String,
-    val amount: Int,
-    val hotspotUrl: String
+    @SerializedName("checkoutId") val checkoutId: String,
+    @SerializedName("txnRef") val txnRef: String,
+    @SerializedName("amount") val amount: Int
 )
 
 data class MpesaResponse(

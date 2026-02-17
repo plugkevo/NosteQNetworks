@@ -19,11 +19,10 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.kevannTechnologies.nosteqCustomers.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
-import kotlinx.coroutines.launch
 import com.kevannTechnologies.nosteqCustomers.models.OnuDetails
 import com.kevannTechnologies.nosteqCustomers.models.OnuStatus
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -200,6 +199,11 @@ fun RouterScreen(
                                 android.util.Log.d("RouterScreen", "[v0] ONU status retrieved: ${onuStatus?.status}")
                             } else {
                                 android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU status: ${statusResponse.code()}")
+                                // Status fetch failure is not critical - continue with details only
+                                if (statusResponse.code() != 403 && statusResponse.code() != 401) {
+                                    // Only log, don't set error for non-auth failures
+                                    AppLogger.logError("RouterScreen: ONU status fetch failed (non-critical)", null, mapOf("statusCode" to statusResponse.code().toString()))
+                                }
                             }
                         } catch (e: Exception) {
                             android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU status: ${e.message}", e)
@@ -209,12 +213,30 @@ fun RouterScreen(
                 } else {
                     val statusCode = detailsResponse.code()
                     android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU details: $statusCode")
-                    errorMessage = if (statusCode == 403) {
-                        "Access denied. Please contact support"
-                    } else if (statusCode == 400) {
-                        "Invalid device serial number. Please contact support"
-                    } else {
-                        "Unable to load device information. Please try again"
+                    android.util.Log.e("RouterScreen", "[v0] Response body: ${detailsResponse.errorBody()?.string()}")
+
+                    errorMessage = when (statusCode) {
+                        403 -> {
+                            AppLogger.logError("RouterScreen: API returned 403 Forbidden", null,
+                                mapOf(
+                                    "endpoint" to "getOnuDetailsBySn",
+                                    "sn" to onuSerialNumber!!,
+                                    "apiKeyLength" to SmartOltConfig.API_KEY.length.toString()
+                                )
+                            )
+                            "Access denied. Please verify your API configuration and try again"
+                        }
+                        400 -> "Invalid device serial number. Please contact support"
+                        401 -> {
+                            AppLogger.logError("RouterScreen: API returned 401 Unauthorized", null,
+                                mapOf(
+                                    "endpoint" to "getOnuDetailsBySn",
+                                    "apiKeyConfigured" to (SmartOltConfig.API_KEY != "YOUR_API_KEY_HERE").toString()
+                                )
+                            )
+                            "Authentication failed. Please contact support"
+                        }
+                        else -> "Unable to load device information. Please try again"
                     }
                 }
             } catch (e: Exception) {
@@ -223,11 +245,6 @@ fun RouterScreen(
                 errorMessage = "Network error. Please check your connection and try again"
                 AppLogger.logError("RouterScreen: Exception fetching ONU details by SN", e, mapOf("onuSerialNumber" to onuSerialNumber!!))
             }
-
-        } catch (e: Exception) {
-            android.util.Log.e("RouterScreen", "[v0] Unexpected error: ${e.message}", e)
-            errorMessage = "Unable to load device data. Please try again"
-            AppLogger.logError("RouterScreen: Unexpected error loading device data", e)
         } finally {
             isLoading = false
         }
@@ -236,12 +253,18 @@ fun RouterScreen(
     LaunchedEffect(onuExternalId) {
         if (onuExternalId == null) return@LaunchedEffect
 
+        // Skip if we already fetched details via serial number
+        if (onuDetails != null) {
+            android.util.Log.d("RouterScreen", "[v0] Skipping external ID fetch - already have details from serial number")
+            return@LaunchedEffect
+        }
+
         isLoading = true
         errorMessage = null
 
         try {
             try {
-                AppLogger.logInfo("RouterScreen: Fetching ONU details", mapOf("onuExternalId" to onuExternalId!!))
+                AppLogger.logInfo("RouterScreen: Fetching ONU details (fallback)", mapOf("onuExternalId" to onuExternalId!!))
 
                 val detailsResponse = SmartOltClient.apiService.getOnuDetails(
                     onuExternalId = onuExternalId!!,
@@ -276,17 +299,13 @@ fun RouterScreen(
                                 onuStatus = statusResponse.body()?.response?.firstOrNull()
                             }
                         } catch (e: Exception) {
-                            AppLogger.logError("RouterScreen: Failed to fetch ONU status", e)
+                            AppLogger.logError("RouterScreen: Failed to fetch ONU status (fallback)", e)
                         }
                     }
                 }
             } catch (e: Exception) {
-                AppLogger.logError("RouterScreen: Failed to fetch ONU details", e, mapOf("onuExternalId" to onuExternalId!!))
+                AppLogger.logError("RouterScreen: Failed to fetch ONU details (fallback)", e, mapOf("onuExternalId" to onuExternalId!!))
             }
-
-        } catch (e: Exception) {
-            errorMessage = "Unable to load device data. Please try again"
-            AppLogger.logError("RouterScreen: Unexpected error loading device data", e)
         } finally {
             isLoading = false
         }

@@ -2,6 +2,8 @@ package com.kevannTechnologies.nosteqCustomers
 
 
 import com.google.gson.GsonBuilder
+import com.kevannTechnologies.nosteqCustomers.models.PaymentGateway
+import com.kevannTechnologies.nosteqCustomers.models.PaymentGatewayDeserializer
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit

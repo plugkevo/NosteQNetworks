@@ -29,8 +29,8 @@ object AppLogger {
         }
     }
 
+    // Change details: Map<String, Int> to Map<String, String>
     fun logError(message: String, error: Throwable? = null, details: Map<String, String> = emptyMap()) {
-        // Log locally in debug builds
         if (isDebug) {
             if (error != null) {
                 Log.e(TAG, message, error)
@@ -39,11 +39,10 @@ object AppLogger {
             }
         }
 
-        // Send to Crashlytics in all builds
         FirebaseCrashlytics.getInstance().apply {
             log("ERROR: $message")
             details.forEach { (key, value) ->
-                setCustomKey(key, value)
+                setCustomKey(key, value) // Crashlytics handles String values perfectly
             }
             if (error != null) {
                 recordException(error)

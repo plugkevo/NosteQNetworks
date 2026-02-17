@@ -255,7 +255,7 @@ fun AccountScreen() {
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Change Password",
+                            text = "Change Password (Account PSWD)",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )

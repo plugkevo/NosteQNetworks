@@ -13,12 +13,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.kevannTechnologies.nosteqCustomers.models.Plan
+import com.kevannTechnologies.nosteqCustomers.models.RechargePlansResponse
+import com.kevannTechnologies.nosteqCustomers.models.RechargeRequest
 import com.kevannTechnologies.nosteqCustomers.models.UserDetail
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+
+
 
 fun String.decodeHtml(): String {
     return Html.fromHtml(this, Html.FROM_HTML_MODE_LEGACY).toString()
@@ -38,45 +43,48 @@ fun String.formatForMpesa(): String {
 private suspend fun processRechargeWithPhone(
     plan: Plan,
     phoneNumber: String,
+    username: String,
     context: Context
-): Pair<Boolean, String> {
+): Pair<Boolean, String?> {
     AppLogger.logInfo("PackagesScreen: Initiating payment", mapOf(
         "planId" to plan.id.toString(),
         "planName" to plan.planName,
-        "amount" to plan.customerCost
+        "amount" to plan.customerCost,
+        "username" to username
     ))
 
-    val mpesaConfig = MpesaConfigManager.getConfig(context)
-
+    // Check M-Pesa configuration
     if (!MpesaConfigManager.isConfigured(context)) {
         AppLogger.logError("PackagesScreen: M-Pesa not configured")
         return Pair(false, "M-Pesa not configured. Please configure M-Pesa settings first.")
     }
 
+    val mpesaConfig = MpesaConfigManager.getConfig(context)
     val formattedPhone = phoneNumber.formatForMpesa()
     val amount = plan.customerCost.toDouble().toInt()
 
     val mpesaManager = MpesaManager(mpesaConfig)
-    val response = mpesaManager.initiateStkPush(
+    val stkResponse = mpesaManager.initiateStkPush(
         phoneNumber = formattedPhone,
         amount = amount.toString(),
-        accountReference = "Plan-${plan.id}",
+        accountReference = username,
         transactionDesc = plan.planName
     )
 
-    val success = response != null && response.responseCode == "0"
+    val success = stkResponse != null && stkResponse.responseCode == "0"
     AppLogger.logApiCall(
         endpoint = "mpesa/stkpush",
         success = success,
-        responseCode = response?.responseCode?.toIntOrNull(),
-        errorMessage = if (!success) (response?.errorMessage ?: response?.responseDescription) else null
+        responseCode = stkResponse?.responseCode?.toIntOrNull(),
+        errorMessage = if (!success) (stkResponse?.errorMessage ?: stkResponse?.responseDescription) else null
     )
 
     return if (success) {
-        Pair(true, "Payment request sent! Check your phone to complete the payment.")
+        // Return the checkoutRequestID to use for payment verification
+        Pair(true, stkResponse?.checkoutRequestID)
     } else {
-        val error = response?.errorMessage ?: response?.responseDescription ?: "Payment failed"
-        Pair(false, "Payment failed: $error")
+        val error = stkResponse?.errorMessage ?: stkResponse?.responseDescription ?: "Payment failed"
+        Pair(false, null)
     }
 }
 
@@ -85,6 +93,7 @@ fun PackagesScreen() {
     val context = LocalContext.current
     val preferencesManager = remember { PreferencesManager(context) }
     val coroutineScope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
 
     var plans by remember { mutableStateOf<List<Plan>>(emptyList()) }
     var userDetail by remember { mutableStateOf<UserDetail?>(null) }
@@ -105,6 +114,15 @@ fun PackagesScreen() {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("Home", "Business")
 
+    // Scroll to top when error message changes
+    LaunchedEffect(errorMessage) {
+        if (errorMessage != null) {
+            coroutineScope.launch {
+                scrollState.animateScrollTo(0)
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         showConfigWarning = !MpesaConfigManager.isConfigured(context)
 
@@ -117,35 +135,39 @@ fun PackagesScreen() {
             return@LaunchedEffect
         }
 
-        PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
-            .enqueue(object : Callback<RechargePlansResponse> {
-                override fun onResponse(
-                    call: Call<RechargePlansResponse>,
-                    response: Response<RechargePlansResponse>
-                ) {
-                    isLoading = false
-                    AppLogger.logApiCall(
-                        endpoint = "getRechargePlans",
-                        success = response.isSuccessful,
-                        responseCode = response.code()
-                    )
+        fun loadUserPlans() {
+            PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
+                .enqueue(object : Callback<RechargePlansResponse> {
+                    override fun onResponse(
+                        call: Call<RechargePlansResponse>,
+                        response: Response<RechargePlansResponse>
+                    ) {
+                        isLoading = false
+                        AppLogger.logApiCall(
+                            endpoint = "getRechargePlans",
+                            success = response.isSuccessful,
+                            responseCode = response.code()
+                        )
 
-                    if (response.isSuccessful && response.body() != null) {
-                        val data = response.body()!!
-                        plans = data.plan
-                        userDetail = data.user
-                        currency = data.currency
-                    } else {
-                        errorMessage = "Failed to load plans"
+                        if (response.isSuccessful && response.body() != null) {
+                            val data = response.body()!!
+                            plans = data.plan
+                            userDetail = data.user
+                            currency = data.currency
+                        } else {
+                            errorMessage = "Failed to load plans"
+                        }
                     }
-                }
 
-                override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {
-                    isLoading = false
-                    errorMessage = "Network error. Please try again."
-                    AppLogger.logError("PackagesScreen: Failed to load plans", t)
-                }
-            })
+                    override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {
+                        isLoading = false
+                        errorMessage = "Network error. Please try again."
+                        AppLogger.logError("PackagesScreen: Failed to load plans", t)
+                    }
+                })
+        }
+
+        loadUserPlans()
     }
 
     if (showConfirmationDialog && checkoutRequestID != null) {
@@ -190,7 +212,88 @@ fun PackagesScreen() {
 
                             if (queryResponse != null) {
                                 if (queryResponse.resultCode == "0") {
-                                    errorMessage = "Payment successful! Your package has been activated."
+                                    // Payment successful - now update the user's plan in the system
+                                    try {
+                                        val token = preferencesManager.getToken() ?: ""
+                                        val rechargeRequest = RechargeRequest(
+                                            rechargePlan = selectedPlan?.id ?: 0,
+                                            quantity = 1,
+                                            rechargeType = 1,
+                                            resetRecharge = false,
+                                            contactPerson = userDetail?.userinfo?.contactPerson ?: "",
+                                            email = userDetail?.userinfo?.email ?: "",
+                                            phone = userDetail?.userinfo?.phone ?: "",
+                                            city = userDetail?.userinfo?.billingCity ?: "",
+                                            zip = userDetail?.userinfo?.billingZip ?: ""
+                                        )
+
+                                        val rechargeResponse = try {
+                                            android.util.Log.d("PackagesScreen", "[v0] Sending recharge request - Plan: ${selectedPlan?.id}, Phone: ${rechargeRequest.phone}")
+                                            PackagesApiClient.instance.processRecharge(
+                                                token = "Bearer $token",
+                                                rechargeRequest = rechargeRequest
+                                            ).execute()
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("PackagesScreen", "[v0] Exception during processRecharge: ${e.message}", e)
+                                            AppLogger.logError("PackagesScreen: Exception updating plan", e)
+                                            null
+                                        }
+
+                                        if (rechargeResponse?.isSuccessful == true && rechargeResponse?.body()?.status == "success") {
+                                            errorMessage = "Payment successful! Your package has been activated."
+                                            AppLogger.logInfo("PackagesScreen: Plan updated successfully", mapOf(
+                                                "newPlanId" to (selectedPlan?.id ?: 0).toString()
+                                            ))
+
+                                            // Reload user data to show new plan
+                                            val userId = preferencesManager.getUserId()
+                                            val token = preferencesManager.getToken()
+                                            if (userId != -1 && token != null) {
+                                                PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
+                                                    .enqueue(object : Callback<RechargePlansResponse> {
+                                                        override fun onResponse(
+                                                            call: Call<RechargePlansResponse>,
+                                                            response: Response<RechargePlansResponse>
+                                                        ) {
+                                                            if (response.isSuccessful && response.body() != null) {
+                                                                val data = response.body()!!
+                                                                plans = data.plan
+                                                                userDetail = data.user
+                                                                android.util.Log.d("PackagesScreen", "[v0] Updated user plan: ${data.user?.planName}")
+                                                            }
+                                                        }
+
+                                                        override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {
+                                                            AppLogger.logError("PackagesScreen: Failed to reload user data", t)
+                                                        }
+                                                    })
+                                            }
+                                        } else {
+                                            val responseStatus = rechargeResponse?.body()?.status ?: "null"
+                                            val responseCode = rechargeResponse?.code() ?: -1
+                                            val isSuccess = rechargeResponse?.isSuccessful ?: false
+                                            android.util.Log.e("PackagesScreen", "[v0] Recharge failed - IsSuccessful: $isSuccess, Code: $responseCode, Status: $responseStatus")
+
+                                            val errorBody = try {
+                                                rechargeResponse?.errorBody()?.string() ?: "No error body"
+                                            } catch (e: Exception) {
+                                                "Could not read error body"
+                                            }
+                                            android.util.Log.e("PackagesScreen", "[v0] Error Response Body: $errorBody")
+
+                                            errorMessage = "Payment verified but failed to activate plan (Code: $responseCode, Status: $responseStatus). Please contact support."
+                                            AppLogger.logError("PackagesScreen: Failed to update plan", null, mapOf(
+                                                "status" to responseStatus.toString(),
+                                                "responseCode" to responseCode.toString(),
+                                                "errorBody" to errorBody,
+                                                "isSuccessful" to isSuccess.toString()
+                                            ))
+                                        }
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("PackagesScreen", "[v0] Exception in plan update: ${e.message}", e)
+                                        errorMessage = "Payment successful but error updating plan: ${e.message}. Please contact support."
+                                        AppLogger.logError("PackagesScreen: Exception in plan update", e)
+                                    }
                                     showConfirmationDialog = false
                                     checkoutRequestID = null
                                 } else {
@@ -201,6 +304,8 @@ fun PackagesScreen() {
                                 }
                             } else {
                                 errorMessage = "Could not verify payment status. Please check your M-Pesa messages or try again."
+                                showConfirmationDialog = false
+                                checkoutRequestID = null
                             }
                         }
                     },
@@ -317,18 +422,19 @@ fun PackagesScreen() {
                         showPaymentDialog = false
                         isProcessing = true
                         coroutineScope.launch {
-                            val (success, message) = processRechargeWithPhone(
+                            val (success, checkoutRequestId) = processRechargeWithPhone(
                                 plan = selectedPlan!!,
                                 phoneNumber = phoneToUse,
+                                username = userDetail?.username ?: "",
                                 context = context
                             )
                             isProcessing = false
 
-                            if (success) {
-                                checkoutRequestID = "CheckoutRequestID"
+                            if (success && checkoutRequestId != null) {
+                                checkoutRequestID = checkoutRequestId
                                 showConfirmationDialog = true
                             } else {
-                                errorMessage = message
+                                errorMessage = "Payment failed. Please try again."
                             }
 
                             useCustomPhone = false
@@ -418,7 +524,7 @@ fun PackagesScreen() {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)

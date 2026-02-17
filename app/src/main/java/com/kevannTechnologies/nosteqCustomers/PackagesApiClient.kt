@@ -1,6 +1,12 @@
 package com.kevannTechnologies.nosteqCustomers
 
 import com.google.gson.GsonBuilder
+import com.kevannTechnologies.nosteqCustomers.models.MpesaResponse
+import com.kevannTechnologies.nosteqCustomers.models.PaymentGateway
+import com.kevannTechnologies.nosteqCustomers.models.PaymentGatewayDeserializer
+import com.kevannTechnologies.nosteqCustomers.models.RechargePlansResponse
+import com.kevannTechnologies.nosteqCustomers.models.RechargeRequest
+import com.kevannTechnologies.nosteqCustomers.models.RechargeResponse
 import okhttp3.OkHttpClient
 import retrofit2.Call
 import retrofit2.Retrofit
@@ -31,7 +37,7 @@ interface PackagesApiService {
     fun processMpesaPayment(
         @Header("Authorization") token: String,
         @Body rechargeRequest: RechargeRequest
-    ): Call<MpesaResponse>
+    ): Call<RechargeResponse>
 }
 
 // Packages API Client with dedicated base URL

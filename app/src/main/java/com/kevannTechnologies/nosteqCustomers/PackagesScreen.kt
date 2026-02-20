@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.kevannTechnologies.nosteqCustomers.models.Plan
 import com.kevannTechnologies.nosteqCustomers.models.RechargePlansResponse
 import com.kevannTechnologies.nosteqCustomers.models.RechargeRequest
+import com.kevannTechnologies.nosteqCustomers.models.RechargeResponse
 import com.kevannTechnologies.nosteqCustomers.models.UserDetail
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
@@ -212,98 +213,93 @@ fun PackagesScreen() {
 
                             if (queryResponse != null) {
                                 if (queryResponse.resultCode == "0") {
-                                    // Payment successful - now update the user's plan in the system
+                                    // Payment successful - now activate the plan via the M-Pesa API endpoint
                                     try {
                                         val token = preferencesManager.getToken() ?: ""
-                                        val rechargeRequest = RechargeRequest(
+
+                                        android.util.Log.d("PackagesScreen", "[v0] Initiating M-Pesa Activation - Plan: ${selectedPlan?.id}")
+
+                                        // 1. Create the request object exactly as per documentation
+                                        val mpesaRequest = RechargeRequest(
                                             rechargePlan = selectedPlan?.id ?: 0,
                                             quantity = 1,
                                             rechargeType = 1,
                                             resetRecharge = false,
-                                            contactPerson = userDetail?.userinfo?.contactPerson ?: "",
+                                            contactPerson = userDetail?.userinfo?.contactPerson ?: "Customer",
                                             email = userDetail?.userinfo?.email ?: "",
+                                            // FIX: Use the original phone from userDetail instead of the formatted 254...
+                                            // unless the 254 version is what's in your DB.
                                             phone = userDetail?.userinfo?.phone ?: "",
-                                            city = userDetail?.userinfo?.billingCity ?: "",
-                                            zip = userDetail?.userinfo?.billingZip ?: ""
+                                            city = userDetail?.userinfo?.billingCity ?: "Nairobi",
+                                            zip = userDetail?.userinfo?.billingZip ?: "00100"
                                         )
 
-                                        val rechargeResponse = try {
-                                            android.util.Log.d("PackagesScreen", "[v0] Sending recharge request - Plan: ${selectedPlan?.id}, Phone: ${rechargeRequest.phone}")
-                                            PackagesApiClient.instance.processRecharge(
-                                                token = "Bearer $token",
-                                                rechargeRequest = rechargeRequest
-                                            ).execute()
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("PackagesScreen", "[v0] Exception during processRecharge: ${e.message}", e)
-                                            AppLogger.logError("PackagesScreen: Exception updating plan", e)
-                                            null
-                                        }
+                                        // 2. Use the dedicated M-Pesa POST endpoint
+                                        PackagesApiClient.instance.processMpesaActivation(
+                                            token = "Bearer $token",
+                                            rechargeRequest = mpesaRequest
+                                        ).enqueue(object : Callback<okhttp3.ResponseBody> { // MUST match the interface return type
+                                            override fun onResponse(
+                                                call: Call<okhttp3.ResponseBody>,
+                                                response: Response<okhttp3.ResponseBody>
+                                            ) {
+                                                isCheckingStatus = false
 
-                                        if (rechargeResponse?.isSuccessful == true && rechargeResponse?.body()?.status == "success") {
-                                            errorMessage = "Payment successful! Your package has been activated."
-                                            AppLogger.logInfo("PackagesScreen: Plan updated successfully", mapOf(
-                                                "newPlanId" to (selectedPlan?.id ?: 0).toString()
-                                            ))
+                                                if (response.isSuccessful) {
+                                                    // Get the raw string to see the transaction details
+                                                    val rawJson = response.body()?.string() ?: ""
+                                                    android.util.Log.d("PackagesScreen", "Activation Success: $rawJson")
 
-                                            // Reload user data to show new plan
-                                            val userId = preferencesManager.getUserId()
-                                            val token = preferencesManager.getToken()
-                                            if (userId != -1 && token != null) {
-                                                PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
-                                                    .enqueue(object : Callback<RechargePlansResponse> {
-                                                        override fun onResponse(
-                                                            call: Call<RechargePlansResponse>,
-                                                            response: Response<RechargePlansResponse>
-                                                        ) {
-                                                            if (response.isSuccessful && response.body() != null) {
-                                                                val data = response.body()!!
-                                                                plans = data.plan
-                                                                userDetail = data.user
-                                                                android.util.Log.d("PackagesScreen", "[v0] Updated user plan: ${data.user?.planName}")
-                                                            }
-                                                        }
+                                                    errorMessage = "Success! Your package has been activated."
+                                                    AppLogger.logInfo("PackagesScreen: Plan updated via M-Pesa API")
 
-                                                        override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {
-                                                            AppLogger.logError("PackagesScreen: Failed to reload user data", t)
-                                                        }
-                                                    })
+                                                    // Reload user data to update the UI
+                                                    val userId = preferencesManager.getUserId()
+                                                    if (userId != -1) {
+                                                        PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
+                                                            .enqueue(object : Callback<RechargePlansResponse> {
+                                                                override fun onResponse(call: Call<RechargePlansResponse>, response: Response<RechargePlansResponse>) {
+                                                                    if (response.isSuccessful && response.body() != null) {
+                                                                        userDetail = response.body()!!.user
+                                                                        plans = response.body()!!.plan
+                                                                    }
+                                                                }
+                                                                override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {}
+                                                            })
+                                                    }
+                                                } else {
+                                                    val errorMsg = "Activation failed (Code: ${response.code()})"
+                                                    errorMessage = errorMsg
+                                                }
+                                                showConfirmationDialog = false
+                                                checkoutRequestID = null
                                             }
-                                        } else {
-                                            val responseStatus = rechargeResponse?.body()?.status ?: "null"
-                                            val responseCode = rechargeResponse?.code() ?: -1
-                                            val isSuccess = rechargeResponse?.isSuccessful ?: false
-                                            android.util.Log.e("PackagesScreen", "[v0] Recharge failed - IsSuccessful: $isSuccess, Code: $responseCode, Status: $responseStatus")
 
-                                            val errorBody = try {
-                                                rechargeResponse?.errorBody()?.string() ?: "No error body"
-                                            } catch (e: Exception) {
-                                                "Could not read error body"
+                                            override fun onFailure(call: Call<okhttp3.ResponseBody>, t: Throwable) {
+                                                isCheckingStatus = false
+                                                android.util.Log.e("PackagesScreen", "API Failure", t)
+                                                errorMessage = "Network error. Please refresh."
+                                                showConfirmationDialog = false
+                                                checkoutRequestID = null
                                             }
-                                            android.util.Log.e("PackagesScreen", "[v0] Error Response Body: $errorBody")
-
-                                            errorMessage = "Payment verified but failed to activate plan (Code: $responseCode, Status: $responseStatus). Please contact support."
-                                            AppLogger.logError("PackagesScreen: Failed to update plan", null, mapOf(
-                                                "status" to responseStatus.toString(),
-                                                "responseCode" to responseCode.toString(),
-                                                "errorBody" to errorBody,
-                                                "isSuccessful" to isSuccess.toString()
-                                            ))
-                                        }
+                                        })
                                     } catch (e: Exception) {
-                                        android.util.Log.e("PackagesScreen", "[v0] Exception in plan update: ${e.message}", e)
-                                        errorMessage = "Payment successful but error updating plan: ${e.message}. Please contact support."
-                                        AppLogger.logError("PackagesScreen: Exception in plan update", e)
+                                        isCheckingStatus = false
+                                        android.util.Log.e("PackagesScreen", "[v0] Error: ${e.message}", e)
+                                        errorMessage = "Error during activation: ${e.message}"
+                                        showConfirmationDialog = false
+                                        checkoutRequestID = null
                                     }
-                                    showConfirmationDialog = false
-                                    checkoutRequestID = null
                                 } else {
                                     val failureReason = queryResponse.resultDesc ?: "Payment was not completed"
-                                    errorMessage = "Payment failed: $failureReason. Please try again."
+                                    errorMessage = "Payment failed: $failureReason"
+                                    isCheckingStatus = false
                                     showConfirmationDialog = false
                                     checkoutRequestID = null
                                 }
                             } else {
-                                errorMessage = "Could not verify payment status. Please check your M-Pesa messages or try again."
+                                errorMessage = "Could not verify payment status. Please check your M-Pesa messages."
+                                isCheckingStatus = false
                                 showConfirmationDialog = false
                                 checkoutRequestID = null
                             }

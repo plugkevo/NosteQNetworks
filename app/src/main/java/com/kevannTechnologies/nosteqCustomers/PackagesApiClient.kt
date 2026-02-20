@@ -12,10 +12,13 @@ import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.Field
+import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
 // API Service interface for Packages endpoints
@@ -27,17 +30,26 @@ interface PackagesApiService {
         @Header("Authorization") token: String
     ): Call<RechargePlansResponse>
 
-    @POST("processRecharge")
+    @FormUrlEncoded
+    @POST("recharge/5") // Use the path from your docs
     fun processRecharge(
         @Header("Authorization") token: String,
-        @Body rechargeRequest: RechargeRequest
-    ): Call<RechargeResponse>
+        @Field("rechargePlan") rechargePlan: Int,
+        @Field("quantity") quantity: Int = 1,
+        @Field("rechargeType") rechargeType: Int = 1,
+        @Field("resetRecharge") resetRecharge: Int = 0, // Using Int (0/1) often works better for PHP
+        @Field("contactPerson") contactPerson: String,
+        @Field("email") email: String,
+        @Field("phone") phone: String,
+        @Field("city") city: String,
+        @Field("zip") zip: String
+    ): Call<okhttp3.ResponseBody>
 
     @POST("mpesa")
-    fun processMpesaPayment(
+    fun processMpesaActivation(
         @Header("Authorization") token: String,
         @Body rechargeRequest: RechargeRequest
-    ): Call<RechargeResponse>
+    ): Call<okhttp3.ResponseBody>
 }
 
 // Packages API Client with dedicated base URL
@@ -54,6 +66,7 @@ object PackagesApiClient {
 
         val gson = GsonBuilder()
             .registerTypeAdapter(PaymentGateway::class.java, PaymentGatewayDeserializer())
+            .setLenient() // <--- ADD THIS LINE HERE
             .create()
 
         Retrofit.Builder()

@@ -4,6 +4,7 @@ import com.google.gson.GsonBuilder
 import com.kevannTechnologies.nosteqCustomers.models.MpesaResponse
 import com.kevannTechnologies.nosteqCustomers.models.PaymentGateway
 import com.kevannTechnologies.nosteqCustomers.models.PaymentGatewayDeserializer
+import com.kevannTechnologies.nosteqCustomers.models.RechargeListResponse
 import com.kevannTechnologies.nosteqCustomers.models.RechargePlansResponse
 import com.kevannTechnologies.nosteqCustomers.models.RechargeRequest
 import com.kevannTechnologies.nosteqCustomers.models.RechargeResponse
@@ -12,14 +13,13 @@ import retrofit2.Call
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
-import retrofit2.http.Field
-import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
+
 
 // API Service interface for Packages endpoints
 interface PackagesApiService {
@@ -30,26 +30,36 @@ interface PackagesApiService {
         @Header("Authorization") token: String
     ): Call<RechargePlansResponse>
 
-    @FormUrlEncoded
-    @POST("recharge/5") // Use the path from your docs
+    @GET("processRecharge")
     fun processRecharge(
         @Header("Authorization") token: String,
-        @Field("rechargePlan") rechargePlan: Int,
-        @Field("quantity") quantity: Int = 1,
-        @Field("rechargeType") rechargeType: Int = 1,
-        @Field("resetRecharge") resetRecharge: Int = 0, // Using Int (0/1) often works better for PHP
-        @Field("contactPerson") contactPerson: String,
-        @Field("email") email: String,
-        @Field("phone") phone: String,
-        @Field("city") city: String,
-        @Field("zip") zip: String
-    ): Call<okhttp3.ResponseBody>
+        @Query("rechargePlan") rechargePlan: Int,
+        @Query("quantity") quantity: Int = 1,
+        @Query("rechargeType") rechargeType: Int = 1,
+        @Query("resetRecharge") resetRecharge: Boolean = false,
+        @Query("contactPerson") contactPerson: String,
+        @Query("email") email: String,
+        @Query("phone") phone: String,
+        @Query("city") city: String,
+        @Query("zip") zip: String
+    ): Call<RechargeResponse>
 
     @POST("mpesa")
-    fun processMpesaActivation(
+    fun processMpesaPayment(
         @Header("Authorization") token: String,
         @Body rechargeRequest: RechargeRequest
-    ): Call<okhttp3.ResponseBody>
+    ): Call<MpesaResponse>
+
+    @GET("mpesa/query/{checkout_id}")
+    fun queryStkPushStatus(
+        @Path("checkout_id") checkoutId: String,
+        @Header("Authorization") token: String
+    ): Call<MpesaResponse>
+
+    @GET("rechargeList")
+    fun getRechargeList(
+        @Header("Authorization") token: String
+    ): Call<RechargeListResponse>
 }
 
 // Packages API Client with dedicated base URL
@@ -66,7 +76,6 @@ object PackagesApiClient {
 
         val gson = GsonBuilder()
             .registerTypeAdapter(PaymentGateway::class.java, PaymentGatewayDeserializer())
-            .setLenient() // <--- ADD THIS LINE HERE
             .create()
 
         Retrofit.Builder()

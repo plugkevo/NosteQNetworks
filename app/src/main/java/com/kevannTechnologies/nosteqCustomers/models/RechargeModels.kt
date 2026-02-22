@@ -1,6 +1,5 @@
 package com.kevannTechnologies.nosteqCustomers.models
 
-import com.kevannTechnologies.nosteqCustomers.models.UserDetail
 import com.google.gson.annotations.SerializedName
 import com.google.gson.JsonDeserializationContext
 import com.google.gson.JsonDeserializer
@@ -43,6 +42,47 @@ data class RechargeConfig(
     @SerializedName("recharge_outstandingAdd") val outstandingAdd: Boolean,
     @SerializedName("outstandingAmountDisable") val outstandingDisable: Boolean
 )
+
+data class RechargeListResponse(
+    @SerializedName("data")
+    val data: List<Recharge>? = emptyList()
+)
+
+data class Recharge(
+    @SerializedName("id")
+    val id: Int,
+    @SerializedName("user_id")
+    val user_id: Int,
+    @SerializedName("username")
+    val username: String,
+    @SerializedName("planName")
+    val planName: String,
+    @SerializedName("quantity")
+    val quantity: Int,
+    @SerializedName("remaningQuantity")
+    val remaningQuantity: Int,
+    @SerializedName("customerCost")
+    val customerCost: String,
+    @SerializedName("status")
+    val status: Int,
+    @SerializedName("startDate")
+    val startDate: String,
+    @SerializedName("expiryDate")
+    val expiryDate: String,
+    @SerializedName("created_at")
+    val created_at: String,
+    @SerializedName("updated_at")
+    val updated_at: String,
+    @SerializedName("planType")
+    val planType: Int?,
+    @SerializedName("planCategory")
+    val planCategory: Int?,
+    @SerializedName("operator_id")
+    val operator_id: Int?,
+    @SerializedName("zoneName")
+    val zoneName: String?
+)
+
 
 class PaymentGatewayDeserializer : JsonDeserializer<PaymentGateway> {
     override fun deserialize(
@@ -142,7 +182,7 @@ data class MpesaResponse(
 )
 
 data class MpesaData(
-    val amount: Int,
-    val phone: String,
-    val reference: String?
+    @SerializedName("checkoutId") val checkoutId: String,
+    @SerializedName("txnRef") val txnRef: String,
+    @SerializedName("amount") val amount: Int
 )

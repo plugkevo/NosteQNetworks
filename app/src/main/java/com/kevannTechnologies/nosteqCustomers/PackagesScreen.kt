@@ -2,8 +2,10 @@ package com.kevannTechnologies.nosteqCustomers
 
 import android.content.Context
 import android.text.Html
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -12,8 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.kevannTechnologies.nosteqCustomers.models.MpesaResponse
 import com.kevannTechnologies.nosteqCustomers.models.Plan
+import com.kevannTechnologies.nosteqCustomers.models.RechargeListResponse
 import com.kevannTechnologies.nosteqCustomers.models.RechargePlansResponse
 import com.kevannTechnologies.nosteqCustomers.models.RechargeRequest
 import com.kevannTechnologies.nosteqCustomers.models.RechargeResponse
@@ -26,67 +31,9 @@ import retrofit2.Response
 
 
 
+
 fun String.decodeHtml(): String {
     return Html.fromHtml(this, Html.FROM_HTML_MODE_LEGACY).toString()
-}
-
-fun String.formatForMpesa(): String {
-    var cleaned = this.replace(Regex("[\\s\\-()\\+]"), "")
-    if (cleaned.startsWith("0")) {
-        cleaned = cleaned.substring(1)
-    }
-    if (!cleaned.startsWith("254")) {
-        cleaned = "254$cleaned"
-    }
-    return cleaned
-}
-
-private suspend fun processRechargeWithPhone(
-    plan: Plan,
-    phoneNumber: String,
-    username: String,
-    context: Context
-): Pair<Boolean, String?> {
-    AppLogger.logInfo("PackagesScreen: Initiating payment", mapOf(
-        "planId" to plan.id.toString(),
-        "planName" to plan.planName,
-        "amount" to plan.customerCost,
-        "username" to username
-    ))
-
-    // Check M-Pesa configuration
-    if (!MpesaConfigManager.isConfigured(context)) {
-        AppLogger.logError("PackagesScreen: M-Pesa not configured")
-        return Pair(false, "M-Pesa not configured. Please configure M-Pesa settings first.")
-    }
-
-    val mpesaConfig = MpesaConfigManager.getConfig(context)
-    val formattedPhone = phoneNumber.formatForMpesa()
-    val amount = plan.customerCost.toDouble().toInt()
-
-    val mpesaManager = MpesaManager(mpesaConfig)
-    val stkResponse = mpesaManager.initiateStkPush(
-        phoneNumber = formattedPhone,
-        amount = amount.toString(),
-        accountReference = username,
-        transactionDesc = plan.planName
-    )
-
-    val success = stkResponse != null && stkResponse.responseCode == "0"
-    AppLogger.logApiCall(
-        endpoint = "mpesa/stkpush",
-        success = success,
-        responseCode = stkResponse?.responseCode?.toIntOrNull(),
-        errorMessage = if (!success) (stkResponse?.errorMessage ?: stkResponse?.responseDescription) else null
-    )
-
-    return if (success) {
-        // Return the checkoutRequestID to use for payment verification
-        Pair(true, stkResponse?.checkoutRequestID)
-    } else {
-        val error = stkResponse?.errorMessage ?: stkResponse?.responseDescription ?: "Payment failed"
-        Pair(false, null)
-    }
 }
 
 @Composable
@@ -104,13 +51,13 @@ fun PackagesScreen() {
     var selectedPlan by remember { mutableStateOf<Plan?>(null) }
     var showPaymentDialog by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
-    var showConfigWarning by remember { mutableStateOf(false) }
     var customPhoneNumber by remember { mutableStateOf("") }
     var useCustomPhone by remember { mutableStateOf(false) }
-
-    var checkoutRequestID by remember { mutableStateOf<String?>(null) }
-    var showConfirmationDialog by remember { mutableStateOf(false) }
-    var isCheckingStatus by remember { mutableStateOf(false) }
+    var showConfigWarning by remember { mutableStateOf(false) }
+    var paymentStatusType by remember { mutableStateOf<String?>(null) } // "success", "error", or null
+    var isVerifyingPayment by remember { mutableStateOf(false) }
+    var pendingCheckoutId by remember { mutableStateOf<String?>(null) }
+    var initialRechargeCount by remember { mutableStateOf(0) }
 
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("Home", "Business")
@@ -125,8 +72,6 @@ fun PackagesScreen() {
     }
 
     LaunchedEffect(Unit) {
-        showConfigWarning = !MpesaConfigManager.isConfigured(context)
-
         val userId = preferencesManager.getUserId()
         val token = preferencesManager.getToken()
 
@@ -169,167 +114,6 @@ fun PackagesScreen() {
         }
 
         loadUserPlans()
-    }
-
-    if (showConfirmationDialog && checkoutRequestID != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showConfirmationDialog = false
-                checkoutRequestID = null
-            },
-            title = { Text("Payment Sent") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("An M-Pesa payment request has been sent to your phone.")
-                    Text("Please check your phone and enter your M-Pesa PIN to complete the payment.")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "After completing the payment, click 'Confirm Payment' to verify.",
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        isCheckingStatus = true
-                        coroutineScope.launch {
-                            AppLogger.logInfo("PackagesScreen: Checking payment status", mapOf(
-                                "checkoutRequestID" to checkoutRequestID!!
-                            ))
-
-                            val mpesaConfig = MpesaConfigManager.getConfig(context)
-                            val mpesaManager = MpesaManager(mpesaConfig)
-                            val queryResponse = mpesaManager.queryStkPushStatus(checkoutRequestID!!)
-
-                            isCheckingStatus = false
-
-                            AppLogger.logApiCall(
-                                endpoint = "mpesa/stkquery",
-                                success = queryResponse?.resultCode == "0",
-                                responseCode = queryResponse?.resultCode?.toIntOrNull(),
-                                errorMessage = queryResponse?.resultDesc
-                            )
-
-                            if (queryResponse != null) {
-                                if (queryResponse.resultCode == "0") {
-                                    // Payment successful - now activate the plan via the M-Pesa API endpoint
-                                    try {
-                                        val token = preferencesManager.getToken() ?: ""
-
-                                        android.util.Log.d("PackagesScreen", "[v0] Initiating M-Pesa Activation - Plan: ${selectedPlan?.id}")
-
-                                        // 1. Create the request object exactly as per documentation
-                                        val mpesaRequest = RechargeRequest(
-                                            rechargePlan = selectedPlan?.id ?: 0,
-                                            quantity = 1,
-                                            rechargeType = 1,
-                                            resetRecharge = false,
-                                            contactPerson = userDetail?.userinfo?.contactPerson ?: "Customer",
-                                            email = userDetail?.userinfo?.email ?: "",
-                                            // FIX: Use the original phone from userDetail instead of the formatted 254...
-                                            // unless the 254 version is what's in your DB.
-                                            phone = userDetail?.userinfo?.phone ?: "",
-                                            city = userDetail?.userinfo?.billingCity ?: "Nairobi",
-                                            zip = userDetail?.userinfo?.billingZip ?: "00100"
-                                        )
-
-                                        // 2. Use the dedicated M-Pesa POST endpoint
-                                        PackagesApiClient.instance.processMpesaActivation(
-                                            token = "Bearer $token",
-                                            rechargeRequest = mpesaRequest
-                                        ).enqueue(object : Callback<okhttp3.ResponseBody> { // MUST match the interface return type
-                                            override fun onResponse(
-                                                call: Call<okhttp3.ResponseBody>,
-                                                response: Response<okhttp3.ResponseBody>
-                                            ) {
-                                                isCheckingStatus = false
-
-                                                if (response.isSuccessful) {
-                                                    // Get the raw string to see the transaction details
-                                                    val rawJson = response.body()?.string() ?: ""
-                                                    android.util.Log.d("PackagesScreen", "Activation Success: $rawJson")
-
-                                                    errorMessage = "Success! Your package has been activated."
-                                                    AppLogger.logInfo("PackagesScreen: Plan updated via M-Pesa API")
-
-                                                    // Reload user data to update the UI
-                                                    val userId = preferencesManager.getUserId()
-                                                    if (userId != -1) {
-                                                        PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
-                                                            .enqueue(object : Callback<RechargePlansResponse> {
-                                                                override fun onResponse(call: Call<RechargePlansResponse>, response: Response<RechargePlansResponse>) {
-                                                                    if (response.isSuccessful && response.body() != null) {
-                                                                        userDetail = response.body()!!.user
-                                                                        plans = response.body()!!.plan
-                                                                    }
-                                                                }
-                                                                override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {}
-                                                            })
-                                                    }
-                                                } else {
-                                                    val errorMsg = "Activation failed (Code: ${response.code()})"
-                                                    errorMessage = errorMsg
-                                                }
-                                                showConfirmationDialog = false
-                                                checkoutRequestID = null
-                                            }
-
-                                            override fun onFailure(call: Call<okhttp3.ResponseBody>, t: Throwable) {
-                                                isCheckingStatus = false
-                                                android.util.Log.e("PackagesScreen", "API Failure", t)
-                                                errorMessage = "Network error. Please refresh."
-                                                showConfirmationDialog = false
-                                                checkoutRequestID = null
-                                            }
-                                        })
-                                    } catch (e: Exception) {
-                                        isCheckingStatus = false
-                                        android.util.Log.e("PackagesScreen", "[v0] Error: ${e.message}", e)
-                                        errorMessage = "Error during activation: ${e.message}"
-                                        showConfirmationDialog = false
-                                        checkoutRequestID = null
-                                    }
-                                } else {
-                                    val failureReason = queryResponse.resultDesc ?: "Payment was not completed"
-                                    errorMessage = "Payment failed: $failureReason"
-                                    isCheckingStatus = false
-                                    showConfirmationDialog = false
-                                    checkoutRequestID = null
-                                }
-                            } else {
-                                errorMessage = "Could not verify payment status. Please check your M-Pesa messages."
-                                isCheckingStatus = false
-                                showConfirmationDialog = false
-                                checkoutRequestID = null
-                            }
-                        }
-                    },
-                    enabled = !isCheckingStatus
-                ) {
-                    if (isCheckingStatus) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text("Confirm Payment")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showConfirmationDialog = false
-                        checkoutRequestID = null
-                    },
-                    enabled = !isCheckingStatus
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 
     if (showPaymentDialog && selectedPlan != null) {
@@ -396,7 +180,7 @@ fun PackagesScreen() {
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "An M-Pesa payment request will be sent to the selected phone.",
+                        "A payment request will be sent to the selected phone.",
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -418,23 +202,172 @@ fun PackagesScreen() {
                         showPaymentDialog = false
                         isProcessing = true
                         coroutineScope.launch {
-                            val (success, checkoutRequestId) = processRechargeWithPhone(
-                                plan = selectedPlan!!,
-                                phoneNumber = phoneToUse,
-                                username = userDetail?.username ?: "",
-                                context = context
-                            )
-                            isProcessing = false
+                            try {
+                                val token = preferencesManager.getToken() ?: ""
 
-                            if (success && checkoutRequestId != null) {
-                                checkoutRequestID = checkoutRequestId
-                                showConfirmationDialog = true
-                            } else {
-                                errorMessage = "Payment failed. Please try again."
+                                // First, fetch the current recharge list to get initial count
+                                PackagesApiClient.instance.getRechargeList("Bearer $token")
+                                    .enqueue(object : Callback<RechargeListResponse> {
+                                        override fun onResponse(
+                                            call: Call<RechargeListResponse>,
+                                            response: Response<RechargeListResponse>
+                                        ) {
+                                            if (response.isSuccessful && response.body() != null) {
+                                                val rechargeList = response.body()!!.data ?: emptyList()
+                                                initialRechargeCount = rechargeList.size
+                                                android.util.Log.d("PackagesScreen", "[v0] Initial recharge count set to: $initialRechargeCount")
+
+                                                // Now proceed with M-Pesa payment
+                                                val rechargeRequest = RechargeRequest(
+                                                    rechargePlan = selectedPlan?.id ?: 0,
+                                                    quantity = 1,
+                                                    rechargeType = 1,
+                                                    resetRecharge = false,
+                                                    contactPerson = userDetail?.userinfo?.contactPerson ?: "",
+                                                    email = userDetail?.userinfo?.email ?: "",
+                                                    phone = phoneToUse,
+                                                    city = userDetail?.userinfo?.billingCity ?: "",
+                                                    zip = userDetail?.userinfo?.billingZip ?: ""
+                                                )
+
+                                                android.util.Log.d("PackagesScreen", "[v0] Initiating M-Pesa payment - Plan: ${selectedPlan?.id}, Phone: $phoneToUse")
+
+                                                // Call the M-Pesa payment endpoint
+                                                PackagesApiClient.instance.processMpesaPayment(
+                                                    token = "Bearer $token",
+                                                    rechargeRequest = rechargeRequest
+                                                ).enqueue(object : Callback<MpesaResponse> {
+                                                    override fun onResponse(
+                                                        call: Call<MpesaResponse>,
+                                                        response: Response<MpesaResponse>
+                                                    ) {
+                                                        isProcessing = false
+
+                                                        if (response.isSuccessful && response.body() != null) {
+                                                            val mpesaResponse = response.body()!!
+                                                            android.util.Log.d("PackagesScreen", "[v0] M-Pesa full response: $mpesaResponse")
+                                                            android.util.Log.d("PackagesScreen", "[v0] M-Pesa status: ${mpesaResponse.status}, CheckoutId: ${mpesaResponse.data?.checkoutId}, Data: ${mpesaResponse.data}")
+
+                                                            // Consider success if we have checkoutId in data (payment initiated successfully)
+                                                            if (mpesaResponse.data != null && mpesaResponse.data.checkoutId.isNotEmpty()) {
+                                                                val checkoutId = mpesaResponse.data.checkoutId
+                                                                val amount = mpesaResponse.data.amount
+                                                                val txnRef = mpesaResponse.data.txnRef
+
+                                                                errorMessage = "M-Pesa STK push sent. Verifying payment..."
+                                                                paymentStatusType = "success"
+                                                                isVerifyingPayment = true
+                                                                pendingCheckoutId = checkoutId
+                                                                android.util.Log.d("PackagesScreen", "[v0] M-Pesa STK push sent - CheckoutID: $checkoutId, TxnRef: $txnRef, Amount: $amount")
+
+                                                                // Start polling recharge list to verify payment
+                                                                var pollCount = 0
+                                                                val maxPolls = 60
+
+                                                                fun pollPaymentVerification() {
+                                                                    if (pollCount >= maxPolls || !isVerifyingPayment) {
+                                                                        if (pollCount >= maxPolls) {
+                                                                            errorMessage = "Payment verification timeout. Please refresh to check payment status."
+                                                                            paymentStatusType = "error"
+                                                                            isVerifyingPayment = false
+                                                                        }
+                                                                        return
+                                                                    }
+
+                                                                    pollCount++
+                                                                    val token = preferencesManager.getToken() ?: ""
+
+                                                                    PackagesApiClient.instance.getRechargeList("Bearer $token")
+                                                                        .enqueue(object : Callback<RechargeListResponse> {
+                                                                            override fun onResponse(
+                                                                                call: Call<RechargeListResponse>,
+                                                                                response: Response<RechargeListResponse>
+                                                                            ) {
+                                                                                if (response.isSuccessful && response.body() != null) {
+                                                                                    val data = response.body()!!
+                                                                                    val rechargeList = data.data ?: emptyList()
+                                                                                    val currentRechargeCount = rechargeList.size
+
+                                                                                    android.util.Log.d("PackagesScreen", "[v0] Poll #$pollCount: Current recharges=$currentRechargeCount, Initial=$initialRechargeCount")
+
+                                                                                    // Check if a new recharge was added
+                                                                                    if (currentRechargeCount > initialRechargeCount) {
+                                                                                        android.util.Log.d("PackagesScreen", "[v0] Payment verified! New recharge detected.")
+                                                                                        isVerifyingPayment = false
+                                                                                        errorMessage = "Payment successful! Your package has been activated."
+                                                                                        paymentStatusType = "success"
+                                                                                        useCustomPhone = false
+                                                                                        customPhoneNumber = ""
+                                                                                        pendingCheckoutId = null
+                                                                                    } else {
+                                                                                        // Payment not yet confirmed, continue polling
+                                                                                        coroutineScope.launch {
+                                                                                            kotlinx.coroutines.delay(3000)
+                                                                                            pollPaymentVerification()
+                                                                                        }
+                                                                                    }
+                                                                                } else {
+                                                                                    // Continue polling on error
+                                                                                    coroutineScope.launch {
+                                                                                        kotlinx.coroutines.delay(3000)
+                                                                                        pollPaymentVerification()
+                                                                                    }
+                                                                                }
+                                                                            }
+
+                                                                            override fun onFailure(call: Call<RechargeListResponse>, t: Throwable) {
+                                                                                // Continue polling on network error
+                                                                                android.util.Log.d("PackagesScreen", "[v0] Poll #$pollCount failed: ${t.message}")
+                                                                                coroutineScope.launch {
+                                                                                    kotlinx.coroutines.delay(3000)
+                                                                                    pollPaymentVerification()
+                                                                                }
+                                                                            }
+                                                                        })
+                                                                }
+
+                                                                // Start the polling
+                                                                pollPaymentVerification()
+                                                            } else {
+                                                                errorMessage = "Payment initiation failed. Please try again."
+                                                                paymentStatusType = "error"
+                                                            }
+                                                        } else {
+                                                            errorMessage = "Payment initiation failed. Please try again."
+                                                            paymentStatusType = "error"
+                                                        }
+                                                    }
+
+                                                    override fun onFailure(call: Call<MpesaResponse>, t: Throwable) {
+                                                        isProcessing = false
+                                                        errorMessage = "Network error: ${t.message}"
+                                                        paymentStatusType = "error"
+                                                        android.util.Log.e("PackagesScreen", "[v0] M-Pesa payment error: ${t.message}", t)
+                                                    }
+                                                })
+                                            } else {
+                                                isProcessing = false
+                                                errorMessage = "Failed to fetch recharge history"
+                                                paymentStatusType = "error"
+                                            }
+                                        }
+
+                                        override fun onFailure(call: Call<RechargeListResponse>, t: Throwable) {
+                                            isProcessing = false
+                                            errorMessage = "Network error: ${t.message}"
+                                            paymentStatusType = "error"
+                                            android.util.Log.e("PackagesScreen", "[v0] Failed to fetch initial recharge count: ${t.message}", t)
+                                        }
+                                    })
+                            } catch (e: Exception) {
+                                isProcessing = false
+                                errorMessage = "Error: ${e.message}"
+                                paymentStatusType = "error"
+                                android.util.Log.e("PackagesScreen", "[v0] Exception: ${e.message}", e)
+                                AppLogger.logError("PackagesScreen: Exception in payment flow", e)
+                                useCustomPhone = false
+                                customPhoneNumber = ""
                             }
-
-                            useCustomPhone = false
-                            customPhoneNumber = ""
                         }
                     },
                     enabled = !isProcessing
@@ -484,13 +417,13 @@ fun PackagesScreen() {
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "M-Pesa Not Configured",
+                            text = "Payment System",
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF856404)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Please configure M-Pesa settings to enable payments.",
+                            text = "New payment method coming soon.",
                             color = Color(0xFF856404)
                         )
                     }
@@ -535,17 +468,37 @@ fun PackagesScreen() {
                     }
                 }
                 errorMessage != null -> {
+                    val isSuccess = paymentStatusType == "success"
+                    val backgroundColor = if (isSuccess) Color(0xFFD4EDDA) else Color(0xFFF8D7DA)
+                    val textColor = if (isSuccess) Color(0xFF155724) else Color(0xFF721C24)
+                    val borderColor = if (isSuccess) Color(0xFF28A745) else Color(0xFFDC3545)
+
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        )
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(2.dp, borderColor, RoundedCornerShape(8.dp)),
+                        colors = CardDefaults.cardColors(containerColor = backgroundColor)
                     ) {
-                        Text(
-                            text = errorMessage!!,
-                            modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
+                        Column(
+                            modifier = Modifier
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if (isVerifyingPayment) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(32.dp),
+                                    color = textColor
+                                )
+                            }
+                            Text(
+                                text = errorMessage!!,
+                                color = textColor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
                 else -> {

@@ -16,6 +16,12 @@ data class OnuStatusResponse(
     val response: List<OnuStatus>
 )
 
+// Single ONU Status Response for get_onu_status endpoint
+data class SingleOnuStatusResponse(
+    val status: Boolean,
+    @SerializedName("onu_status") val onuStatus: String
+)
+
 data class OnuStatus(
     val id: Int,
     val name: String,
@@ -64,14 +70,14 @@ data class OnuDetailsResponse(
 )
 
 data class OnuDetails(
-    @SerializedName("unique_external_id") val uniqueExternalId: String,
-    val sn: String,
-    val name: String,
-    @SerializedName("olt_id") val oltId: String,
-    @SerializedName("olt_name") val oltName: String,
-    val board: String,
-    val port: String,
-    val onu: String,
+    @SerializedName("unique_external_id") val uniqueExternalId: String?,
+    val sn: String?,
+    val name: String?,
+    @SerializedName("olt_id") val oltId: String?,
+    @SerializedName("olt_name") val oltName: String?,
+    val board: String?,
+    val port: String?,
+    val onu: String?,
     @SerializedName("onu_type_id") val onuTypeId: String,
     @SerializedName("onu_type_name") val onuTypeName: String,
     @SerializedName("zone_id") val zoneId: String,

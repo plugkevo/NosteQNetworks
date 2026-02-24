@@ -65,7 +65,7 @@ class PreferencesManager(context: Context) {
         return elapsedTime >= SESSION_TIMEOUT_MS
     }
 
-    fun saveOnuExternalId(externalId: String) {
+    fun saveOnuExternalId(externalId: String?) {
         prefs.edit().putString(KEY_ONU_EXTERNAL_ID, externalId).apply()
     }
 

@@ -7,8 +7,11 @@ import com.kevannTechnologies.nosteqCustomers.models.OltListResponse
 import com.kevannTechnologies.nosteqCustomers.models.OnuDetailsResponse
 import com.kevannTechnologies.nosteqCustomers.models.OnuStatusResponse
 import com.kevannTechnologies.nosteqCustomers.models.RebootResponse
+import com.kevannTechnologies.nosteqCustomers.models.SingleOnuStatusResponse
 import com.kevannTechnologies.nosteqCustomers.models.SpeedProfilesResponse
+import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -18,6 +21,8 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Streaming
+import java.util.concurrent.TimeUnit
+
 
 interface SmartOltApiService {
 
@@ -36,6 +41,12 @@ interface SmartOltApiService {
         @Query("zone") zone: String? = null
     ): Response<OnuStatusResponse>
 
+    @GET("onu/get_onu_status/{onu_external_id}")
+    suspend fun getOnuStatus(
+        @Path("onu_external_id") onuExternalId: String,
+        @Header("X-Token") apiKey: String
+    ): Response<SingleOnuStatusResponse>
+
     @GET("system/get_speed_profiles")
     suspend fun getSpeedProfiles(
         @Header("X-Token") apiKey: String
@@ -49,7 +60,7 @@ interface SmartOltApiService {
 
     @GET("onu/get_onu_details/{onu_external_id}")
     suspend fun getOnuDetails(
-        @Path("onu_external_id") onuExternalId: String,
+        @Path("onu_external_id") onuExternalId: String?,
         @Header("X-Token") apiKey: String
     ): Response<OnuDetailsResponse>
 
@@ -78,8 +89,18 @@ interface SmartOltApiService {
 }
 
 object SmartOltClient {
+    private val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        })
+        .build()
+
     private val retrofit = Retrofit.Builder()
         .baseUrl(SmartOltConfig.getBaseUrl())
+        .client(httpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 

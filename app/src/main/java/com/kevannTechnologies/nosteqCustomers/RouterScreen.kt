@@ -1,5 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,16 +15,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.kevannTechnologies.nosteqCustomers.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 import com.kevannTechnologies.nosteqCustomers.models.OnuDetails
-import com.kevannTechnologies.nosteqCustomers.models.OnuStatus
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.layout.ContentScale
+import com.kevannTechnologies.nosteqCustomers.repository.OnuRepository
+import com.kevannTechnologies.nosteqCustomers.repository.OnuStatusRepository
 import kotlinx.coroutines.launch
+
+
 
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -32,19 +37,25 @@ fun RouterScreen(
 ) {
     val context = LocalContext.current
     val preferencesManager = remember { PreferencesManager(context) }
+    val onuRepository = remember { OnuRepository() }
+    val onuStatusRepository = remember { OnuStatusRepository() }
 
-    var onuExternalId by remember { mutableStateOf<String?>(null) }
-    var onuSerialNumber by remember { mutableStateOf<String?>(null) }
-    var onuStatus by remember { mutableStateOf<OnuStatus?>(null) }
-    var onuDetails by remember { mutableStateOf<OnuDetails?>(null) }
+    var onuList by remember { mutableStateOf<List<OnuDetails>>(emptyList()) }
+    var selectedOnuIndex by remember { mutableStateOf(0) }
+    var onuStatus by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
     var selectedGraphType by remember { mutableStateOf("daily") }
+    var isGraphLoading by remember { mutableStateOf(false) }
+    var graphImageUri by remember { mutableStateOf<String?>(null) }
+    var uploadData by remember { mutableStateOf<Long>(0L) }
+    var downloadData by remember { mutableStateOf<Long>(0L) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Fetch all ONUs for the user
     LaunchedEffect(username) {
         if (username.isBlank()) {
             errorMessage = "Please log in again"
@@ -52,272 +63,169 @@ fun RouterScreen(
             return@LaunchedEffect
         }
 
-
-
         isLoading = true
         errorMessage = null
 
-        try {
-            val cachedId = preferencesManager.getOnuExternalId()
-
-            if (cachedId != null) {
-                onuExternalId = cachedId
-                AppLogger.logInfo("RouterScreen: Using cached ONU ID", mapOf("onuExternalId" to cachedId))
-            } else {
-                AppLogger.logInfo("RouterScreen: Fetching ONU list", mapOf("username" to username))
-
-                val allOnusResponse = SmartOltClient.apiService.getAllOnusDetails(
-                    apiKey = SmartOltConfig.API_KEY
-                )
-
-                AppLogger.logApiCall(
-                    endpoint = "getAllOnusDetails",
-                    success = allOnusResponse.isSuccessful,
-                    responseCode = allOnusResponse.code(),
-                    errorMessage = if (!allOnusResponse.isSuccessful) "Failed to fetch ONUs" else null
-                )
-
-                if (allOnusResponse.isSuccessful && allOnusResponse.body()?.status == true) {
-                    val allOnus = allOnusResponse.body()?.onus ?: emptyList()
-
-                    val matchingOnu = allOnus.firstOrNull { onu ->
-                        onu.username?.equals(username, ignoreCase = true) == true
-                    }
-
-                    if (matchingOnu != null) {
-                        onuExternalId = matchingOnu.uniqueExternalId
-                        onuSerialNumber = matchingOnu.sn
-                        preferencesManager.saveOnuExternalId(matchingOnu.uniqueExternalId)
-                        AppLogger.logInfo("RouterScreen: ONU found", mapOf(
-                            "username" to username,
-                            "onuExternalId" to matchingOnu.uniqueExternalId,
-                            "onuSerialNumber" to matchingOnu.sn
-                        ))
-                    } else {
-                        errorMessage = "No device found for your account. Please contact support"
-                        AppLogger.logError("RouterScreen: No ONU found for username", null, mapOf("username" to username))
-                        isLoading = false
-                        return@LaunchedEffect
-                    }
-                } else {
-                    val statusCode = allOnusResponse.code()
-                    errorMessage = if (statusCode == 403) {
-                        "Access denied. Please contact support"
-                    } else {
-                        "Unable to load device information. Please try again"
-                    }
-
-                    isLoading = false
-                    return@LaunchedEffect
+        scope.launch {
+            val result = onuRepository.fetchAllOnusByUsername(username)
+            result.onSuccess { onus ->
+                onuList = onus
+                selectedOnuIndex = 0
+                if (onus.isNotEmpty()) {
+                    preferencesManager.saveOnuExternalId(onus[0].uniqueExternalId)
                 }
+                isLoading = false
+            }.onFailure { exception ->
+                errorMessage = exception.message ?: "Error loading device information. Please try again"
+                isLoading = false
             }
-        } catch (e: Exception) {
-            errorMessage = "Network error. Please check your connection and try again"
-            AppLogger.logError("RouterScreen: Exception fetching ONU list", e, mapOf("username" to username))
-            isLoading = false
-            return@LaunchedEffect
         }
     }
 
-    LaunchedEffect(onuSerialNumber) {
-        if (onuSerialNumber == null) return@LaunchedEffect
-
-        isLoading = true
-        errorMessage = null
-
-        try {
-            try {
-                android.util.Log.d("RouterScreen", "[v0] Fetching ONU details by SN: $onuSerialNumber")
-                AppLogger.logInfo("RouterScreen: Fetching ONU details by SN", mapOf("onuSerialNumber" to onuSerialNumber!!))
-
-                val detailsResponse = SmartOltClient.apiService.getOnuDetailsBySn(
-                    sn = onuSerialNumber!!,
-                    apiKey = SmartOltConfig.API_KEY
-                )
-
-                android.util.Log.d("RouterScreen", "[v0] getOnuDetailsBySn response code: ${detailsResponse.code()}")
-                AppLogger.logApiCall(
-                    endpoint = "getOnuDetailsBySn",
-                    success = detailsResponse.isSuccessful,
-                    responseCode = detailsResponse.code()
-                )
-
-                if (detailsResponse.isSuccessful && detailsResponse.body()?.status == true) {
-                    val onuList = detailsResponse.body()?.onus ?: emptyList()
-                    onuDetails = onuList.firstOrNull()?.let { onu ->
-                        OnuDetails(
-                            name = onu.name,
-                            sn = onu.sn,
-                            uniqueExternalId = onu.uniqueExternalId,
-                            oltId = onu.oltId,
-                            oltName = onu.oltName,
-                            board = onu.board,
-                            port = onu.port,
-                            onu = onu.onu,
-                            onuTypeId = "",
-                            onuTypeName = onu.onuTypeName ?: "Unknown",
-                            zoneId = "",
-                            zoneName = onu.zoneName,
-                            address = onu.address,
-                            odbName = onu.odbName,
-                            mode = null,
-                            wanMode = null,
-                            ipAddress = null,
-                            subnetMask = null,
-                            defaultGateway = null,
-                            dns1 = null,
-                            dns2 = null,
-                            username = onu.username,
-                            password = null,
-                            catv = null,
-                            administrativeStatus = null,
-                            servicePorts = null
-                        )
-                    }
-                    android.util.Log.d("RouterScreen", "[v0] ONU details retrieved successfully")
-
-                    onuDetails?.let { details ->
-                        try {
-                            android.util.Log.d("RouterScreen", "[v0] Fetching ONU status for olt_id=${details.oltId}, board=${details.board}, port=${details.port}")
-
-                            val statusResponse = SmartOltClient.apiService.getOnuStatuses(
-                                apiKey = SmartOltConfig.API_KEY,
-                                oltId = details.oltId.toIntOrNull(),
-                                board = details.board.toIntOrNull(),
-                                port = details.port.toIntOrNull()
-                            )
-
-                            android.util.Log.d("RouterScreen", "[v0] getOnuStatuses response code: ${statusResponse.code()}")
-                            AppLogger.logApiCall(
-                                endpoint = "getOnuStatuses",
-                                success = statusResponse.isSuccessful,
-                                responseCode = statusResponse.code()
-                            )
-
-                            if (statusResponse.isSuccessful && statusResponse.body()?.status == true) {
-                                onuStatus = statusResponse.body()?.response?.firstOrNull()
-                                android.util.Log.d("RouterScreen", "[v0] ONU status retrieved: ${onuStatus?.status}")
-                            } else {
-                                android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU status: ${statusResponse.code()}")
-                                // Status fetch failure is not critical - continue with details only
-                                if (statusResponse.code() != 403 && statusResponse.code() != 401) {
-                                    // Only log, don't set error for non-auth failures
-                                    AppLogger.logError("RouterScreen: ONU status fetch failed (non-critical)", null, mapOf("statusCode" to statusResponse.code().toString()))
-                                }
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU status: ${e.message}", e)
-                            AppLogger.logError("RouterScreen: Failed to fetch ONU status", e)
-                        }
-                    }
-                } else {
-                    val statusCode = detailsResponse.code()
-                    android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU details: $statusCode")
-                    android.util.Log.e("RouterScreen", "[v0] Response body: ${detailsResponse.errorBody()?.string()}")
-
-                    errorMessage = when (statusCode) {
-                        403 -> {
-                            AppLogger.logError("RouterScreen: API returned 403 Forbidden", null,
-                                mapOf(
-                                    "endpoint" to "getOnuDetailsBySn",
-                                    "sn" to onuSerialNumber!!,
-                                    "apiKeyLength" to SmartOltConfig.API_KEY.length.toString()
-                                )
-                            )
-                            "Access denied. Please verify your API configuration and try again"
-                        }
-                        400 -> "Invalid device serial number. Please contact support"
-                        401 -> {
-                            AppLogger.logError("RouterScreen: API returned 401 Unauthorized", null,
-                                mapOf(
-                                    "endpoint" to "getOnuDetailsBySn",
-                                    "apiKeyConfigured" to (SmartOltConfig.API_KEY != "YOUR_API_KEY_HERE").toString()
-                                )
-                            )
-                            "Authentication failed. Please contact support"
-                        }
-                        else -> "Unable to load device information. Please try again"
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("RouterScreen", "[v0] Exception fetching ONU details: ${e.message}", e)
-                android.util.Log.e("RouterScreen", "[v0] Exception type: ${e.javaClass.simpleName}")
-                errorMessage = "Network error. Please check your connection and try again"
-                AppLogger.logError("RouterScreen: Exception fetching ONU details by SN", e, mapOf("onuSerialNumber" to onuSerialNumber!!))
-            }
-        } finally {
+    // Fetch ONU status for the selected ONU
+    LaunchedEffect(selectedOnuIndex, onuList) {
+        if (onuList.isEmpty()) {
             isLoading = false
-        }
-    }
-
-    LaunchedEffect(onuExternalId) {
-        if (onuExternalId == null) return@LaunchedEffect
-
-        // Skip if we already fetched details via serial number
-        if (onuDetails != null) {
-            android.util.Log.d("RouterScreen", "[v0] Skipping external ID fetch - already have details from serial number")
             return@LaunchedEffect
         }
 
-        isLoading = true
-        errorMessage = null
+        val selectedOnu = onuList[selectedOnuIndex]
+        android.util.Log.d("RouterScreen", "[v0] Fetching status for ONU: ${selectedOnu.name}, ExternalID: ${selectedOnu.uniqueExternalId}")
 
-        try {
+        scope.launch {
+            val result = onuStatusRepository.fetchOnuStatus(
+                onuExternalId = selectedOnu.uniqueExternalId
+            )
+            result.onSuccess { status ->
+                android.util.Log.d("RouterScreen", "[v0] Status fetch success: $status")
+                onuStatus = status
+                isLoading = false
+            }.onFailure { exception ->
+                android.util.Log.e("RouterScreen", "[v0] Status fetch failure: ${exception.message}", exception)
+                isLoading = false
+            }
+        }
+    }
+
+    // Fetch data usage for selected ONU
+    LaunchedEffect(selectedOnuIndex, onuList) {
+        if (onuList.isEmpty()) return@LaunchedEffect
+
+        val selectedOnu = onuList[selectedOnuIndex]
+        android.util.Log.d("RouterScreen", "[v0] Fetching ONU details for: ${selectedOnu.name}")
+
+        scope.launch {
             try {
-                AppLogger.logInfo("RouterScreen: Fetching ONU details (fallback)", mapOf("onuExternalId" to onuExternalId!!))
-
-                val detailsResponse = SmartOltClient.apiService.getOnuDetails(
-                    onuExternalId = onuExternalId!!,
+                val response = SmartOltClient.apiService.getOnuDetails(
+                    onuExternalId = selectedOnu.uniqueExternalId,
                     apiKey = SmartOltConfig.API_KEY
                 )
 
-                AppLogger.logApiCall(
-                    endpoint = "getOnuDetails",
-                    success = detailsResponse.isSuccessful,
-                    responseCode = detailsResponse.code()
-                )
+                android.util.Log.d("RouterScreen", "[v0] ONU details response code: ${response.code()}")
 
-                if (detailsResponse.isSuccessful && detailsResponse.body()?.status == true) {
-                    onuDetails = detailsResponse.body()?.onuDetails
+                if (response.isSuccessful) {
+                    val details = response.body()?.onuDetails
+                    android.util.Log.d("RouterScreen", "[v0] ONU details retrieved: $details")
+                    android.util.Log.d("RouterScreen", "[v0] Full response body: ${response.body()}")
 
-                    onuDetails?.let { details ->
-                        try {
-                            val statusResponse = SmartOltClient.apiService.getOnuStatuses(
-                                apiKey = SmartOltConfig.API_KEY,
-                                oltId = details.oltId.toIntOrNull(),
-                                board = details.board.toIntOrNull(),
-                                port = details.port.toIntOrNull()
-                            )
+                    // Extract upload and download speeds from first service port
+                    val servicePorts = details?.servicePorts
+                    android.util.Log.d("RouterScreen", "[v0] Service ports: $servicePorts")
+                    android.util.Log.d("RouterScreen", "[v0] Service ports count: ${servicePorts?.size}")
 
-                            AppLogger.logApiCall(
-                                endpoint = "getOnuStatuses",
-                                success = statusResponse.isSuccessful,
-                                responseCode = statusResponse.code()
-                            )
+                    if (!servicePorts.isNullOrEmpty()) {
+                        val firstPort = servicePorts[0]
+                        android.util.Log.d("RouterScreen", "[v0] First service port: $firstPort")
+                        android.util.Log.d("RouterScreen", "[v0] Upload speed string: ${firstPort.uploadSpeed}")
+                        android.util.Log.d("RouterScreen", "[v0] Download speed string: ${firstPort.downloadSpeed}")
 
-                            if (statusResponse.isSuccessful && statusResponse.body()?.status == true) {
-                                onuStatus = statusResponse.body()?.response?.firstOrNull()
-                            }
-                        } catch (e: Exception) {
-                            AppLogger.logError("RouterScreen: Failed to fetch ONU status (fallback)", e)
-                        }
+                        // Parse speed strings like "1G", "100M" to bytes
+                        uploadData = parseNetworkSpeed(firstPort.uploadSpeed)
+                        downloadData = parseNetworkSpeed(firstPort.downloadSpeed)
+
+                        android.util.Log.d("RouterScreen", "[v0] Parsed speeds - Upload: $uploadData bytes, Download: $downloadData bytes")
+                        android.util.Log.d("RouterScreen", "[v0] Formatted - Upload: ${formatBytes(uploadData)}, Download: ${formatBytes(downloadData)}")
+                    } else {
+                        uploadData = 0L
+                        downloadData = 0L
+                        android.util.Log.d("RouterScreen", "[v0] No service ports found - setting to 0")
                     }
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    android.util.Log.e("RouterScreen", "[v0] Failed to fetch ONU details: ${response.code()}, Error: $errorBody")
                 }
             } catch (e: Exception) {
-                AppLogger.logError("RouterScreen: Failed to fetch ONU details (fallback)", e, mapOf("onuExternalId" to onuExternalId!!))
+                android.util.Log.e("RouterScreen", "[v0] Error fetching ONU details: ${e.message}", e)
             }
-        } finally {
-            isLoading = false
+        }
+    }
+
+    // Fetch traffic graph when graph type or ONU changes
+    LaunchedEffect(selectedGraphType, selectedOnuIndex, onuList) {
+        if (onuList.isEmpty()) return@LaunchedEffect
+
+        val selectedOnu = onuList[selectedOnuIndex]
+        if (selectedOnu.uniqueExternalId.isNullOrBlank()) {
+            android.util.Log.d("RouterScreen", "[v0] External ID is blank, skipping graph fetch")
+            return@LaunchedEffect
+        }
+
+        isGraphLoading = true
+        android.util.Log.d("RouterScreen", "[v0] Fetching graph - ExternalID: ${selectedOnu.uniqueExternalId}, Type: $selectedGraphType")
+
+        scope.launch {
+            try {
+                val response = SmartOltClient.apiService.getOnuTrafficGraph(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                    graphType = selectedGraphType,
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                android.util.Log.d("RouterScreen", "[v0] Graph response code: ${response.code()}")
+
+                if (response.isSuccessful) {
+                    val bytes = response.body()?.bytes()
+                    android.util.Log.d("RouterScreen", "[v0] Response body bytes: ${bytes?.size}")
+
+                    if (bytes != null && bytes.isNotEmpty()) {
+                        try {
+                            // Save to cache directory
+                            val cacheDir = context.cacheDir
+                            val graphFile = java.io.File(cacheDir, "traffic_graph_${selectedGraphType}.png")
+                            graphFile.writeBytes(bytes)
+
+                            graphImageUri = "file://${graphFile.absolutePath}"
+                            android.util.Log.d("RouterScreen", "[v0] Graph image saved to: ${graphFile.absolutePath}")
+                        } catch (e: Exception) {
+                            android.util.Log.e("RouterScreen", "[v0] Error saving graph file: ${e.message}", e)
+                        }
+                    } else {
+                        android.util.Log.e("RouterScreen", "[v0] Response body is empty or null")
+                    }
+                } else {
+                    val errorBody = response.errorBody()?.string() ?: "No error details"
+                    android.util.Log.e("RouterScreen", "[v0] Graph fetch failed: ${response.code()}, Error: $errorBody")
+                }
+                isGraphLoading = false
+            } catch (e: Exception) {
+                android.util.Log.e("RouterScreen", "[v0] Exception fetching graph: ${e.message}", e)
+                isGraphLoading = false
+            }
         }
     }
 
     fun rebootOnu() {
+        if (onuList.isEmpty()) return
+
         scope.launch {
             try {
-                AppLogger.logInfo("RouterScreen: Rebooting ONU", mapOf("onuExternalId" to onuExternalId!!))
+                val selectedOnu = onuList[selectedOnuIndex]
+                AppLogger.logInfo("RouterScreen: Rebooting ONU",
+                    mapOf("onuExternalId" to selectedOnu.uniqueExternalId) as Map<String, String>
+                )
 
                 val response = SmartOltClient.apiService.rebootOnu(
-                    onuExternalId = onuExternalId!!,
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
                     apiKey = SmartOltConfig.API_KEY
                 )
 
@@ -347,6 +255,8 @@ fun RouterScreen(
             }
         }
     }
+
+    val selectedOnu = if (onuList.isNotEmpty()) onuList[selectedOnuIndex] else null
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -379,81 +289,162 @@ fun RouterScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(Icons.Default.Warning, contentDescription = null)
-                        Text(error)
+                        Text(error, modifier = Modifier.weight(1f))
                     }
                 }
             }
 
-            onuDetails?.let { details ->
-                Card {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = "Device Details",
-                            style = MaterialTheme.typography.titleLarge
+            // ONU Tabs - Show when multiple ONUs exist
+            if (onuList.size > 1) {
+                ScrollableTabRow(
+                    selectedTabIndex = selectedOnuIndex,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp)),
+                    edgePadding = 0.dp
+                ) {
+                    onuList.forEachIndexed { index, onu ->
+                        Tab(
+                            selected = selectedOnuIndex == index,
+                            onClick = { selectedOnuIndex = index },
+                            text = {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(8.dp)
+                                ) {
+                                    Text(
+                                        text = onu.name ?: "Router ${index + 1}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = "S/N: ${onu.sn?.take(8)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                         )
-
-                        Divider(
-                            modifier = Modifier.fillMaxWidth(),
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        StatusRow("Name", details.name)
-                        StatusRow("Serial Number", details.sn)
-                        StatusRow("External ID", details.uniqueExternalId)
                     }
                 }
             }
 
-            onuStatus?.let { status ->
+            selectedOnu?.let { details ->
+                // Device Info Card
                 Card {
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Router Status",
-                                style = MaterialTheme.typography.titleLarge
+                            Icon(
+                                Icons.Default.Router,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp)
                             )
-                            Surface(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(12.dp)),
-                                color = if (status.status.equals("online", ignoreCase = true))
-                                    Color(0xFF4CAF50)
-                                else
-                                    Color(0xFFEF5350)
-                            ) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = status.status.uppercase(),
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.labelMedium
+                                    text = details.name ?: "Unknown Device",
+                                    style = MaterialTheme.typography.headlineSmall
                                 )
+                                Text(
+                                    text = "S/N: ${details.sn}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (onuStatus == "Online") {
+                                Badge(
+                                    containerColor = Color(0xFF4CAF50)
+                                ) {
+                                    Text("Online", color = Color.White)
+                                }
+                            } else {
+                                Badge(
+                                    containerColor = Color(0xFFB71C1C)
+                                ) {
+                                    Text("Offline", color = Color.White)
+                                }
                             }
                         }
 
-                        Divider(
+                        Divider()
+
+                        // Device Details Grid
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            DetailItem(label = "Type", value = details.onuTypeName ?: "Unknown", modifier = Modifier.weight(1f))
+                            DetailItem(label = "Zone", value = details.zoneName ?: "N/A", modifier = Modifier.weight(1f))
+                        }
 
-                        StatusRow("Name", status.name)
-                        status.signal?.let { StatusRow("Signal", it) }
-                        status.rxPower?.let { StatusRow("RX Power", it) }
-                        status.txPower?.let { StatusRow("TX Power", it) }
-                        status.distance?.let { StatusRow("Distance", it) }
-                        status.temperature?.let { StatusRow("Temperature", it) }
-                        status.voltage?.let { StatusRow("Voltage", it) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            DetailItem(label = "Username", value = details.username ?: "N/A", modifier = Modifier.weight(1f))
+                            DetailItem(label = "Port", value = details.port ?: "N/A", modifier = Modifier.weight(1f))
+                        }
 
+                        // External ID and IP Address
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            DetailItem(label = "External ID", value = details.uniqueExternalId ?: "N/A", modifier = Modifier.weight(1f))
+                            details.ipAddress?.let {
+                                DetailItem(label = "IP Address", value = it, modifier = Modifier.weight(1f))
+                            }
+                        }
+
+                        // Status Section
+                        if (isLoading) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(40.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        color = if (onuStatus == "Online") Color(0x1F4CAF50) else Color(0x1FB71C1C),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = "Router Status",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(
+                                        text = onuStatus ?: "Unknown",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (onuStatus == "Online") Color(0xFF4CAF50) else Color(0xFFB71C1C),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Divider()
+
+                        // Action Button - Reboot
                         Button(
                             onClick = { showRebootDialog = true },
                             modifier = Modifier.fillMaxWidth(),
@@ -461,61 +452,114 @@ fun RouterScreen(
                                 containerColor = MaterialTheme.colorScheme.error
                             )
                         ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text("Reboot Device")
                         }
                     }
                 }
-            }
 
-            onuExternalId?.let { externalId ->
-                Card {
+                // Traffic Graph Section
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "Traffic Graph",
-                            style = MaterialTheme.typography.titleLarge
+                            text = "Traffic Usage",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
 
-                        Divider(
-                            modifier = Modifier.fillMaxWidth(),
-                            thickness = 1.dp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            listOf("hourly", "daily", "weekly", "monthly", "yearly").forEach { type ->
+                            listOf("Hourly", "Daily", "Weekly", "Monthly").forEach { period ->
                                 FilterChip(
-                                    selected = selectedGraphType == type,
-                                    onClick = { selectedGraphType = type },
-                                    label = { Text(type.replaceFirstChar { it.uppercase() }) }
+                                    selected = selectedGraphType == period.lowercase(),
+                                    onClick = { selectedGraphType = period.lowercase() },
+                                    label = { Text(period, maxLines = 1) }
                                 )
                             }
                         }
 
-                        val graphUrl = "${SmartOltConfig.getBaseUrl()}onu/get_onu_traffic_graph/$externalId/$selectedGraphType"
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(250.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
+                        if (isGraphLoading) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(250.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CircularProgressIndicator()
+                                    Text(
+                                        text = "Loading traffic graph...",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        } else if (!graphImageUri.isNullOrEmpty()) {
                             AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(graphUrl)
-                                    .addHeader("X-Token", SmartOltConfig.API_KEY)
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(graphImageUri)
                                     .crossfade(true)
                                     .build(),
-                                contentDescription = "$selectedGraphType traffic graph",
-                                modifier = Modifier.fillMaxSize()
+                                contentDescription = "Traffic graph for ${selectedGraphType}",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(250.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(250.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No traffic data available",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        // Traffic Stats
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            TrafficStatItem(
+                                label = "Upload",
+                                value = formatBytes(uploadData),
+                                modifier = Modifier.weight(1f)
+                            )
+                            TrafficStatItem(
+                                label = "Download",
+                                value = formatBytes(downloadData),
+                                modifier = Modifier.weight(1f)
+                            )
+                            TrafficStatItem(
+                                label = "Total",
+                                value = formatBytes(uploadData + downloadData),
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
@@ -527,18 +571,13 @@ fun RouterScreen(
     if (showRebootDialog) {
         AlertDialog(
             onDismissRequest = { showRebootDialog = false },
-            title = { Text("Confirm Reboot") },
-            text = { Text("Are you sure you want to reboot your device? This will temporarily disconnect your internet connection.") },
+            title = { Text("Reboot Device?") },
+            text = { Text("This will restart your device. Are you sure?") },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showRebootDialog = false
-                        rebootOnu()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
+                Button(onClick = {
+                    rebootOnu()
+                    showRebootDialog = false
+                }) {
                     Text("Reboot")
                 }
             },
@@ -552,16 +591,11 @@ fun RouterScreen(
 }
 
 @Composable
-private fun StatusRow(label: String, value: String?) {
-    if (value == null) return
-
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
+fun DetailItem(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
@@ -571,12 +605,58 @@ private fun StatusRow(label: String, value: String?) {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
 @Composable
-fun RouterScreenPreview() {
-    NosteqTheme {
-        RouterScreen(
-            username = "testuser"
+fun TrafficStatItem(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+private fun formatBytes(bytes: Long): String {
+    if (bytes <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB", "TB")
+    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
+    return String.format("%.2f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
+}
+
+private fun parseNetworkSpeed(speedString: String): Long {
+    // Parse speed strings like "1G", "100M", "10M" to bytes
+    // 1G = 1 Gigabit = 1000 Mbps = 125,000,000 bytes/sec
+    // 1M = 1 Megabit = 1 Mbps = 125,000 bytes/sec
+    val upperSpeed = speedString.uppercase().trim()
+
+    val (value, unit) = if (upperSpeed.endsWith("G")) {
+        Pair(upperSpeed.dropLast(1).toLongOrNull() ?: 0L, "G")
+    } else if (upperSpeed.endsWith("M")) {
+        Pair(upperSpeed.dropLast(1).toLongOrNull() ?: 0L, "M")
+    } else if (upperSpeed.endsWith("K")) {
+        Pair(upperSpeed.dropLast(1).toLongOrNull() ?: 0L, "K")
+    } else {
+        Pair(upperSpeed.toLongOrNull() ?: 0L, "")
+    }
+
+    return when (unit) {
+        "G" -> value * 1_000_000_000 // Gigabits to bytes
+        "M" -> value * 1_000_000    // Megabits to bytes
+        "K" -> value * 1_000        // Kilobits to bytes
+        else -> value               // Already in bytes
     }
 }

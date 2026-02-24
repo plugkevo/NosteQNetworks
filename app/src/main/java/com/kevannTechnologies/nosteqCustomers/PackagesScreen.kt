@@ -1,14 +1,44 @@
 package com.kevannTechnologies.nosteqCustomers
 
-import android.content.Context
 import android.text.Html
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,19 +46,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.kevannTechnologies.nosteqCustomers.models.MpesaResponse
+import androidx.compose.ui.unit.sp
 import com.kevannTechnologies.nosteqCustomers.models.Plan
-import com.kevannTechnologies.nosteqCustomers.models.RechargeListResponse
-import com.kevannTechnologies.nosteqCustomers.models.RechargePlansResponse
-import com.kevannTechnologies.nosteqCustomers.models.RechargeRequest
-import com.kevannTechnologies.nosteqCustomers.models.RechargeResponse
 import com.kevannTechnologies.nosteqCustomers.models.UserDetail
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
-
 
 
 
@@ -54,13 +76,29 @@ fun PackagesScreen() {
     var customPhoneNumber by remember { mutableStateOf("") }
     var useCustomPhone by remember { mutableStateOf(false) }
     var showConfigWarning by remember { mutableStateOf(false) }
-    var paymentStatusType by remember { mutableStateOf<String?>(null) } // "success", "error", or null
+    var paymentStatusType by remember { mutableStateOf<String?>(null) }
     var isVerifyingPayment by remember { mutableStateOf(false) }
     var pendingCheckoutId by remember { mutableStateOf<String?>(null) }
     var initialRechargeCount by remember { mutableStateOf(0) }
-
     var selectedTabIndex by remember { mutableStateOf(0) }
+
     val tabs = listOf("Home", "Business")
+
+    val packagesActivity = remember {
+        PackagesActivity(
+            preferencesManager = preferencesManager,
+            coroutineScope = coroutineScope,
+            onStateUpdate = { errorMsg, statusType, processing, verifying, customPhone, phoneNum, checkoutId ->
+                errorMessage = errorMsg
+                paymentStatusType = statusType
+                isProcessing = processing
+                isVerifyingPayment = verifying
+                useCustomPhone = customPhone
+                customPhoneNumber = phoneNum
+                pendingCheckoutId = checkoutId
+            }
+        )
+    }
 
     // Scroll to top when error message changes
     LaunchedEffect(errorMessage) {
@@ -81,368 +119,252 @@ fun PackagesScreen() {
             return@LaunchedEffect
         }
 
-        fun loadUserPlans() {
-            PackagesApiClient.instance.getRechargePlans(userId, "Bearer $token")
-                .enqueue(object : Callback<RechargePlansResponse> {
-                    override fun onResponse(
-                        call: Call<RechargePlansResponse>,
-                        response: Response<RechargePlansResponse>
-                    ) {
-                        isLoading = false
-                        AppLogger.logApiCall(
-                            endpoint = "getRechargePlans",
-                            success = response.isSuccessful,
-                            responseCode = response.code()
-                        )
-
-                        if (response.isSuccessful && response.body() != null) {
-                            val data = response.body()!!
-                            plans = data.plan
-                            userDetail = data.user
-                            currency = data.currency
-                        } else {
-                            errorMessage = "Failed to load plans"
-                        }
-                    }
-
-                    override fun onFailure(call: Call<RechargePlansResponse>, t: Throwable) {
-                        isLoading = false
-                        errorMessage = "Network error. Please try again."
-                        AppLogger.logError("PackagesScreen: Failed to load plans", t)
-                    }
-                })
+        packagesActivity.loadPlans(userId, "Bearer $token") { success, error, loadedPlans, loadedCurrency, loadedUserDetail ->
+            isLoading = false
+            if (success && loadedPlans != null) {
+                plans = loadedPlans
+                currency = loadedCurrency ?: "KES"
+                userDetail = loadedUserDetail
+                android.util.Log.d("PackagesScreen", "[v0] User detail loaded: ${userDetail?.userinfo?.phone}")
+            } else {
+                errorMessage = error ?: "Failed to load plans"
+            }
         }
-
-        loadUserPlans()
     }
 
     if (showPaymentDialog && selectedPlan != null) {
-        val decodedCurrency = currency.decodeHtml()
-        AlertDialog(
-            onDismissRequest = {
+        PaymentDialog(
+            selectedPlan = selectedPlan!!,
+            userDetail = userDetail,
+            currency = currency,
+            useCustomPhone = useCustomPhone,
+            customPhoneNumber = customPhoneNumber,
+            isProcessing = isProcessing,
+            onUseCustomPhoneChange = { useCustomPhone = it },
+            onPhoneNumberChange = { customPhoneNumber = it },
+            onDismiss = {
                 showPaymentDialog = false
                 useCustomPhone = false
                 customPhoneNumber = ""
             },
-            title = { Text("Confirm Payment") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Plan: ${selectedPlan!!.planName}")
-                    Text("Amount: $decodedCurrency ${selectedPlan!!.customerCost}")
+            onConfirmPayment = {
+                // Capture values before resetting
+                val useCustomPhoneValue = useCustomPhone
+                val customPhoneValue = customPhoneNumber
 
-                    HorizontalDivider()
+                // Close the dialog immediately so user can see status messages
+                showPaymentDialog = false
+                useCustomPhone = false
+                customPhoneNumber = ""
 
-                    Text("Payment Phone Number", fontWeight = FontWeight.Bold)
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        RadioButton(
-                            selected = !useCustomPhone,
-                            onClick = { useCustomPhone = false }
-                        )
-                        Text(
-                            text = "My number: ${userDetail?.userinfo?.phone ?: "N/A"}",
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        RadioButton(
-                            selected = useCustomPhone,
-                            onClick = { useCustomPhone = true }
-                        )
-                        Text(
-                            text = "Different number",
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-
-                    if (useCustomPhone) {
-                        OutlinedTextField(
-                            value = customPhoneNumber,
-                            onValueChange = { customPhoneNumber = it },
-                            label = { Text("Phone Number") },
-                            placeholder = { Text("254712345678") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true
-                        )
-                        Text(
-                            text = "Format: 254XXXXXXXXX",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "A payment request will be sent to the selected phone.",
-                        fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val phoneToUse = if (useCustomPhone) {
-                            if (customPhoneNumber.isBlank()) {
-                                errorMessage = "Please enter a phone number"
-                                return@Button
-                            }
-                            customPhoneNumber
-                        } else {
-                            userDetail?.userinfo?.phone ?: ""
-                        }
-
-                        showPaymentDialog = false
-                        isProcessing = true
-                        coroutineScope.launch {
-                            try {
-                                val token = preferencesManager.getToken() ?: ""
-
-                                // First, fetch the current recharge list to get initial count
-                                PackagesApiClient.instance.getRechargeList("Bearer $token")
-                                    .enqueue(object : Callback<RechargeListResponse> {
-                                        override fun onResponse(
-                                            call: Call<RechargeListResponse>,
-                                            response: Response<RechargeListResponse>
-                                        ) {
-                                            if (response.isSuccessful && response.body() != null) {
-                                                val rechargeList = response.body()!!.data ?: emptyList()
-                                                initialRechargeCount = rechargeList.size
-                                                android.util.Log.d("PackagesScreen", "[v0] Initial recharge count set to: $initialRechargeCount")
-
-                                                // Now proceed with M-Pesa payment
-                                                val rechargeRequest = RechargeRequest(
-                                                    rechargePlan = selectedPlan?.id ?: 0,
-                                                    quantity = 1,
-                                                    rechargeType = 1,
-                                                    resetRecharge = false,
-                                                    contactPerson = userDetail?.userinfo?.contactPerson ?: "",
-                                                    email = userDetail?.userinfo?.email ?: "",
-                                                    phone = phoneToUse,
-                                                    city = userDetail?.userinfo?.billingCity ?: "",
-                                                    zip = userDetail?.userinfo?.billingZip ?: ""
-                                                )
-
-                                                android.util.Log.d("PackagesScreen", "[v0] Initiating M-Pesa payment - Plan: ${selectedPlan?.id}, Phone: $phoneToUse")
-
-                                                // Call the M-Pesa payment endpoint
-                                                PackagesApiClient.instance.processMpesaPayment(
-                                                    token = "Bearer $token",
-                                                    rechargeRequest = rechargeRequest
-                                                ).enqueue(object : Callback<MpesaResponse> {
-                                                    override fun onResponse(
-                                                        call: Call<MpesaResponse>,
-                                                        response: Response<MpesaResponse>
-                                                    ) {
-                                                        isProcessing = false
-
-                                                        if (response.isSuccessful && response.body() != null) {
-                                                            val mpesaResponse = response.body()!!
-                                                            android.util.Log.d("PackagesScreen", "[v0] M-Pesa full response: $mpesaResponse")
-                                                            android.util.Log.d("PackagesScreen", "[v0] M-Pesa status: ${mpesaResponse.status}, CheckoutId: ${mpesaResponse.data?.checkoutId}, Data: ${mpesaResponse.data}")
-
-                                                            // Consider success if we have checkoutId in data (payment initiated successfully)
-                                                            if (mpesaResponse.data != null && mpesaResponse.data.checkoutId.isNotEmpty()) {
-                                                                val checkoutId = mpesaResponse.data.checkoutId
-                                                                val amount = mpesaResponse.data.amount
-                                                                val txnRef = mpesaResponse.data.txnRef
-
-                                                                errorMessage = "M-Pesa STK push sent. Verifying payment..."
-                                                                paymentStatusType = "success"
-                                                                isVerifyingPayment = true
-                                                                pendingCheckoutId = checkoutId
-                                                                android.util.Log.d("PackagesScreen", "[v0] M-Pesa STK push sent - CheckoutID: $checkoutId, TxnRef: $txnRef, Amount: $amount")
-
-                                                                // Start polling recharge list to verify payment
-                                                                var pollCount = 0
-                                                                val maxPolls = 60
-
-                                                                fun pollPaymentVerification() {
-                                                                    if (pollCount >= maxPolls || !isVerifyingPayment) {
-                                                                        if (pollCount >= maxPolls) {
-                                                                            errorMessage = "Payment verification timeout. Please refresh to check payment status."
-                                                                            paymentStatusType = "error"
-                                                                            isVerifyingPayment = false
-                                                                        }
-                                                                        return
-                                                                    }
-
-                                                                    pollCount++
-                                                                    val token = preferencesManager.getToken() ?: ""
-
-                                                                    PackagesApiClient.instance.getRechargeList("Bearer $token")
-                                                                        .enqueue(object : Callback<RechargeListResponse> {
-                                                                            override fun onResponse(
-                                                                                call: Call<RechargeListResponse>,
-                                                                                response: Response<RechargeListResponse>
-                                                                            ) {
-                                                                                if (response.isSuccessful && response.body() != null) {
-                                                                                    val data = response.body()!!
-                                                                                    val rechargeList = data.data ?: emptyList()
-                                                                                    val currentRechargeCount = rechargeList.size
-
-                                                                                    android.util.Log.d("PackagesScreen", "[v0] Poll #$pollCount: Current recharges=$currentRechargeCount, Initial=$initialRechargeCount")
-
-                                                                                    // Check if a new recharge was added
-                                                                                    if (currentRechargeCount > initialRechargeCount) {
-                                                                                        android.util.Log.d("PackagesScreen", "[v0] Payment verified! New recharge detected.")
-                                                                                        isVerifyingPayment = false
-                                                                                        errorMessage = "Payment successful! Your package has been activated."
-                                                                                        paymentStatusType = "success"
-                                                                                        useCustomPhone = false
-                                                                                        customPhoneNumber = ""
-                                                                                        pendingCheckoutId = null
-                                                                                    } else {
-                                                                                        // Payment not yet confirmed, continue polling
-                                                                                        coroutineScope.launch {
-                                                                                            kotlinx.coroutines.delay(3000)
-                                                                                            pollPaymentVerification()
-                                                                                        }
-                                                                                    }
-                                                                                } else {
-                                                                                    // Continue polling on error
-                                                                                    coroutineScope.launch {
-                                                                                        kotlinx.coroutines.delay(3000)
-                                                                                        pollPaymentVerification()
-                                                                                    }
-                                                                                }
-                                                                            }
-
-                                                                            override fun onFailure(call: Call<RechargeListResponse>, t: Throwable) {
-                                                                                // Continue polling on network error
-                                                                                android.util.Log.d("PackagesScreen", "[v0] Poll #$pollCount failed: ${t.message}")
-                                                                                coroutineScope.launch {
-                                                                                    kotlinx.coroutines.delay(3000)
-                                                                                    pollPaymentVerification()
-                                                                                }
-                                                                            }
-                                                                        })
-                                                                }
-
-                                                                // Start the polling
-                                                                pollPaymentVerification()
-                                                            } else {
-                                                                errorMessage = "Payment initiation failed. Please try again."
-                                                                paymentStatusType = "error"
-                                                            }
-                                                        } else {
-                                                            errorMessage = "Payment initiation failed. Please try again."
-                                                            paymentStatusType = "error"
-                                                        }
-                                                    }
-
-                                                    override fun onFailure(call: Call<MpesaResponse>, t: Throwable) {
-                                                        isProcessing = false
-                                                        errorMessage = "Network error: ${t.message}"
-                                                        paymentStatusType = "error"
-                                                        android.util.Log.e("PackagesScreen", "[v0] M-Pesa payment error: ${t.message}", t)
-                                                    }
-                                                })
-                                            } else {
-                                                isProcessing = false
-                                                errorMessage = "Failed to fetch recharge history"
-                                                paymentStatusType = "error"
-                                            }
-                                        }
-
-                                        override fun onFailure(call: Call<RechargeListResponse>, t: Throwable) {
-                                            isProcessing = false
-                                            errorMessage = "Network error: ${t.message}"
-                                            paymentStatusType = "error"
-                                            android.util.Log.e("PackagesScreen", "[v0] Failed to fetch initial recharge count: ${t.message}", t)
-                                        }
-                                    })
-                            } catch (e: Exception) {
-                                isProcessing = false
-                                errorMessage = "Error: ${e.message}"
-                                paymentStatusType = "error"
-                                android.util.Log.e("PackagesScreen", "[v0] Exception: ${e.message}", e)
-                                AppLogger.logError("PackagesScreen: Exception in payment flow", e)
-                                useCustomPhone = false
-                                customPhoneNumber = ""
-                            }
-                        }
-                    },
-                    enabled = !isProcessing
-                ) {
-                    if (isProcessing) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = Color.White
-                        )
-                    } else {
-                        Text("Pay with M-Pesa")
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showPaymentDialog = false
-                    useCustomPhone = false
-                    customPhoneNumber = ""
-                }) {
-                    Text("Cancel")
-                }
+                // Process payment in background with captured values
+                packagesActivity.processPayment(
+                    selectedPlan = selectedPlan,
+                    userDetail = userDetail,
+                    useCustomPhone = useCustomPhoneValue,
+                    customPhoneNumber = customPhoneValue,
+                    initialRechargeCount = initialRechargeCount
+                ) { _, _, _, _ -> }
             }
         )
     }
 
+    PackagesScreenContent(
+        plans = plans,
+        userDetail = userDetail,
+        currency = currency,
+        isLoading = isLoading,
+        errorMessage = errorMessage,
+        paymentStatusType = paymentStatusType,
+        isVerifyingPayment = isVerifyingPayment,
+        selectedTabIndex = selectedTabIndex,
+        scrollState = scrollState,
+        tabs = tabs,
+        onTabChange = { selectedTabIndex = it },
+        onSubscribeClick = { plan ->
+            selectedPlan = plan
+            showPaymentDialog = true
+        }
+    )
+}
+
+@Composable
+fun PaymentDialog(
+    selectedPlan: Plan,
+    userDetail: UserDetail?,
+    currency: String,
+    useCustomPhone: Boolean,
+    customPhoneNumber: String,
+    isProcessing: Boolean,
+    onUseCustomPhoneChange: (Boolean) -> Unit,
+    onPhoneNumberChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onConfirmPayment: () -> Unit
+) {
+    val decodedCurrency = currency.decodeHtml()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Confirm Payment") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Plan: ${selectedPlan.planName}")
+                Text("Amount: $decodedCurrency ${selectedPlan.customerCost}")
+
+                HorizontalDivider()
+
+                Text("Payment Phone Number", fontWeight = FontWeight.Bold)
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    RadioButton(
+                        selected = !useCustomPhone,
+                        onClick = { onUseCustomPhoneChange(false) }
+                    )
+                    Text(
+                        text = "My number: ${userDetail?.userinfo?.phone ?: "N/A"}",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    RadioButton(
+                        selected = useCustomPhone,
+                        onClick = { onUseCustomPhoneChange(true) }
+                    )
+                    Text(
+                        text = "Different number",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
+
+                if (useCustomPhone) {
+                    OutlinedTextField(
+                        value = customPhoneNumber,
+                        onValueChange = onPhoneNumberChange,
+                        label = { Text("Phone Number") },
+                        placeholder = { Text("254712345678") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    Text(
+                        text = "Format: 254XXXXXXXXX",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "A payment request will be sent to the selected phone.",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirmPayment,
+                enabled = !isProcessing
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White
+                    )
+                } else {
+                    Text("Pay with M-Pesa")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun PackagesScreenContent(
+    plans: List<Plan>,
+    userDetail: UserDetail?,
+    currency: String,
+    isLoading: Boolean,
+    errorMessage: String?,
+    paymentStatusType: String?,
+    isVerifyingPayment: Boolean,
+    selectedTabIndex: Int,
+    scrollState: androidx.compose.foundation.ScrollState,
+    tabs: List<String>,
+    onTabChange: (Int) -> Unit,
+    onSubscribeClick: (Plan) -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
+        val isDarkMode = isSystemInDarkTheme()
+        val headerBgColor = Color(0xFF00BCD4)
+
+        // Header section with gradient background
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(headerBgColor)
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Available Packages",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
+                text = "Choose Your Plan",
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth()
             )
+            Text(
+                text = "Select the perfect package for your needs",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.White.copy(alpha = 0.9f)
+            )
+        }
 
-            if (showConfigWarning) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFFFF3CD)
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Payment System",
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF856404)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "New payment method coming soon.",
-                            color = Color(0xFF856404)
-                        )
-                    }
-                }
-            }
+        // Tab section
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            val tabContainerColor = if (isDarkMode) Color(0xFF1E1E1E) else Color.White
+            val tabBorderColor = if (isDarkMode) Color(0xFF404040) else Color(0xFFE0E0E0)
+            val tabTextColorInactive = if (isDarkMode) Color(0xFF999999) else Color.Gray
 
             TabRow(
                 selectedTabIndex = selectedTabIndex,
-                containerColor = MaterialTheme.colorScheme.surface,
-                contentColor = Color(0xFF42A5F5)
+                containerColor = tabContainerColor,
+                contentColor = Color(0xFF00BCD4),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(tabContainerColor, RoundedCornerShape(12.dp))
+                    .border(1.dp, tabBorderColor, RoundedCornerShape(12.dp))
             ) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
                         selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index },
+                        onClick = { onTabChange(index) },
+                        modifier = Modifier.padding(vertical = 12.dp),
                         text = {
                             Text(
                                 text = title,
-                                fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal
+                                fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = if (selectedTabIndex == index) 16.sp else 14.sp,
+                                color = if (selectedTabIndex == index) Color(0xFF00BCD4) else tabTextColorInactive
                             )
                         }
                     )
@@ -450,53 +372,79 @@ fun PackagesScreen() {
             }
         }
 
+        // Content section
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             when {
                 isLoading -> {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(64.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(
+                            color = Color(0xFF00BCD4),
+                            strokeWidth = 4.dp,
+                            modifier = Modifier.size(48.dp)
+                        )
                     }
                 }
                 errorMessage != null -> {
                     val isSuccess = paymentStatusType == "success"
-                    val backgroundColor = if (isSuccess) Color(0xFFD4EDDA) else Color(0xFFF8D7DA)
-                    val textColor = if (isSuccess) Color(0xFF155724) else Color(0xFF721C24)
-                    val borderColor = if (isSuccess) Color(0xFF28A745) else Color(0xFFDC3545)
+                    val isLoadingState = paymentStatusType == "loading"
+
+                    val (backgroundColor, textColor, borderColor) = when {
+                        isLoadingState -> if (isDarkMode) {
+                            Triple(Color(0xFF0D47A1).copy(alpha = 0.3f), Color(0xFF64B5F6), Color(0xFF1976D2))
+                        } else {
+                            Triple(Color(0xFFE3F2FD), Color(0xFF1565C0), Color(0xFF1976D2))
+                        }
+                        isSuccess -> if (isDarkMode) {
+                            Triple(Color(0xFF1B5E20).copy(alpha = 0.3f), Color(0xFF81C784), Color(0xFF4CAF50))
+                        } else {
+                            Triple(Color(0xFFE8F5E9), Color(0xFF2E7D32), Color(0xFF4CAF50))
+                        }
+                        else -> if (isDarkMode) {
+                            Triple(Color(0xFFB71C1C).copy(alpha = 0.3f), Color(0xFFEF5350), Color(0xFFF44336))
+                        } else {
+                            Triple(Color(0xFFFFEBEE), Color(0xFFC62828), Color(0xFFF44336))
+                        }
+                    }
 
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(2.dp, borderColor, RoundedCornerShape(8.dp)),
-                        colors = CardDefaults.cardColors(containerColor = backgroundColor)
+                            .border(2.dp, borderColor, RoundedCornerShape(12.dp)),
+                        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Column(
                             modifier = Modifier
-                                .padding(16.dp)
+                                .padding(20.dp)
                                 .fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            if (isVerifyingPayment) {
+                            if (isVerifyingPayment || isLoadingState) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(32.dp),
-                                    color = textColor
+                                    modifier = Modifier.size(40.dp),
+                                    color = textColor,
+                                    strokeWidth = 3.dp
                                 )
                             }
                             Text(
-                                text = errorMessage!!,
+                                text = errorMessage,
                                 color = textColor,
                                 style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
@@ -504,17 +452,28 @@ fun PackagesScreen() {
                 else -> {
                     val filteredPlans = plans.filter { plan ->
                         when (selectedTabIndex) {
-                            0 -> !plan.planName.contains("business", ignoreCase = true) // Home packages
-                            1 -> plan.planName.contains("business", ignoreCase = true) // Business packages
+                            0 -> !plan.planName.contains("business", ignoreCase = true)
+                            1 -> plan.planName.contains("business", ignoreCase = true)
                             else -> true
                         }
                     }
 
                     if (filteredPlans.isEmpty()) {
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        val emptyStateColor = if (isDarkMode) Color(0xFF2A2A2A) else Color(0xFFF5F5F5)
+                        val emptyTextColor = if (isDarkMode) Color(0xFF999999) else Color.Gray
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            colors = CardDefaults.cardColors(containerColor = emptyStateColor)
+                        ) {
                             Text(
                                 text = "No ${tabs[selectedTabIndex].lowercase()} packages available",
-                                modifier = Modifier.padding(16.dp)
+                                modifier = Modifier.padding(32.dp),
+                                style = MaterialTheme.typography.bodyLarge,
+                                textAlign = TextAlign.Center,
+                                color = emptyTextColor
                             )
                         }
                     } else {
@@ -523,10 +482,8 @@ fun PackagesScreen() {
                                 plan = plan,
                                 currency = currency,
                                 isActive = plan.id == userDetail?.planId,
-                                onSubscribe = {
-                                    selectedPlan = plan
-                                    showPaymentDialog = true
-                                }
+                                onSubscribe = { onSubscribeClick(plan) },
+                                isDarkMode = isDarkMode
                             )
                         }
                     }
@@ -535,71 +492,154 @@ fun PackagesScreen() {
         }
     }
 }
-
 @Composable
 fun PackageCard(
     plan: Plan,
     currency: String,
     isActive: Boolean,
-    onSubscribe: () -> Unit
+    onSubscribe: () -> Unit,
+    isDarkMode: Boolean = false
 ) {
     val decodedCurrency = currency.decodeHtml()
+    val isRecommended = plan.planName.contains("Business", ignoreCase = true)
+
+    // Modern color scheme with dark mode support
+    val primaryColor = Color(0xFF00BCD4)
+    val accentColor = Color(0xFF00ACC1)
+
+    val surfaceColor = when {
+        isDarkMode && (isActive || isRecommended) -> Color(0xFF1A1A1A)
+        isDarkMode -> Color(0xFF121212)
+        isActive || isRecommended -> Color(0xFF1A237E).copy(alpha = 0.05f)
+        else -> Color.White
+    }
+
+    val textColor = if (isDarkMode) Color.White else Color.Black
+    val subtextColor = if (isDarkMode) Color(0xFFB0B0B0) else Color.Gray
+    val borderColor = if (isRecommended) primaryColor else (if (isDarkMode) Color(0xFF404040) else Color(0xFFE0E0E0))
+    val borderWidth = if (isRecommended) 2.dp else 1.dp
+    val buttonDisabledColor = if (isDarkMode) Color(0xFF424242) else Color(0xFFE0E0E0)
+    val buttonDisabledTextColor = if (isDarkMode) Color(0xFF999999) else Color.DarkGray
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = if (isActive) {
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        } else {
-            CardDefaults.cardColors()
-        }
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = surfaceColor),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isRecommended) 12.dp else 4.dp
+        )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Header with plan name and badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = plan.planName,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = plan.planName,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
+                    )
+                }
+
                 if (isActive) {
                     Badge(
                         containerColor = Color(0xFF4CAF50),
-                        contentColor = Color.White
+                        contentColor = Color.White,
+                        modifier = Modifier.padding(start = 8.dp)
                     ) {
-                        Text("Active")
+                        Text("Active", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
 
-            HorizontalDivider()
+            // Price section - prominently displayed
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = decodedCurrency,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = subtextColor
+                )
+                Text(
+                    text = plan.customerCost,
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = primaryColor
+                )
+                Text(
+                    text = "/month",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = subtextColor
+                )
+            }
 
-            Text(
-                text = "$decodedCurrency ${plan.customerCost}",
-                style = MaterialTheme.typography.headlineSmall,
-                color = Color(0xFF42A5F5),
-                fontWeight = FontWeight.Bold,
-            )
+            // Features list
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    "Unlimited data access",
+                    "24/7 customer support",
+                    "Priority network speed"
+                ).forEach { feature ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "✓",
+                            color = Color(0xFF4CAF50),
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = feature,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = subtextColor
+                        )
+                    }
+                }
+            }
 
+            // Subscribe/Current button
             Button(
                 onClick = onSubscribe,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
                 enabled = !isActive,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF42A5F5),
-                    contentColor = Color.White,
-                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    containerColor = if (isActive) buttonDisabledColor else primaryColor,
+                    contentColor = if (isActive) buttonDisabledTextColor else Color.White,
+                    disabledContainerColor = buttonDisabledColor,
+                    disabledContentColor = buttonDisabledTextColor
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(if (isActive) "Current Package" else "Subscribe")
+                Text(
+                    text = if (isActive) "Current Package" else "Subscribe Now",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge
+                )
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -29,7 +30,6 @@ import kotlinx.coroutines.launch
 
 
 
-
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RouterScreen(
@@ -46,6 +46,8 @@ fun RouterScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
+    var showWiFiDialog by remember { mutableStateOf(false) }
+    var isChangingWiFi by remember { mutableStateOf(false) }
     var selectedGraphType by remember { mutableStateOf("daily") }
     var isGraphLoading by remember { mutableStateOf(false) }
     var graphImageUri by remember { mutableStateOf<String?>(null) }
@@ -126,29 +128,19 @@ fun RouterScreen(
                 if (response.isSuccessful) {
                     val details = response.body()?.onuDetails
                     android.util.Log.d("RouterScreen", "[v0] ONU details retrieved: $details")
-                    android.util.Log.d("RouterScreen", "[v0] Full response body: ${response.body()}")
 
-                    // Extract upload and download speeds from first service port
                     val servicePorts = details?.servicePorts
-                    android.util.Log.d("RouterScreen", "[v0] Service ports: $servicePorts")
-                    android.util.Log.d("RouterScreen", "[v0] Service ports count: ${servicePorts?.size}")
 
                     if (!servicePorts.isNullOrEmpty()) {
                         val firstPort = servicePorts[0]
-                        android.util.Log.d("RouterScreen", "[v0] First service port: $firstPort")
-                        android.util.Log.d("RouterScreen", "[v0] Upload speed string: ${firstPort.uploadSpeed}")
-                        android.util.Log.d("RouterScreen", "[v0] Download speed string: ${firstPort.downloadSpeed}")
 
-                        // Parse speed strings like "1G", "100M" to bytes
                         uploadData = parseNetworkSpeed(firstPort.uploadSpeed)
                         downloadData = parseNetworkSpeed(firstPort.downloadSpeed)
 
-                        android.util.Log.d("RouterScreen", "[v0] Parsed speeds - Upload: $uploadData bytes, Download: $downloadData bytes")
-                        android.util.Log.d("RouterScreen", "[v0] Formatted - Upload: ${formatBytes(uploadData)}, Download: ${formatBytes(downloadData)}")
+                        android.util.Log.d("RouterScreen", "[v0] Parsed speeds - Upload: ${formatBytes(uploadData)}, Download: ${formatBytes(downloadData)}")
                     } else {
                         uploadData = 0L
                         downloadData = 0L
-                        android.util.Log.d("RouterScreen", "[v0] No service ports found - setting to 0")
                     }
                 } else {
                     val errorBody = response.errorBody()?.string()
@@ -189,7 +181,6 @@ fun RouterScreen(
 
                     if (bytes != null && bytes.isNotEmpty()) {
                         try {
-                            // Save to cache directory
                             val cacheDir = context.cacheDir
                             val graphFile = java.io.File(cacheDir, "traffic_graph_${selectedGraphType}.png")
                             graphFile.writeBytes(bytes)
@@ -444,7 +435,54 @@ fun RouterScreen(
 
                         Divider()
 
-                        // Action Button - Reboot
+                        // WiFi Credentials Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showWiFiDialog = true },
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.VpnKey,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = "Change WiFi Credentials",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        text = "Update your router's WiFi username and password",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Icon(
+                                    Icons.Default.ArrowForward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+
+                        // Reboot Device Button
                         Button(
                             onClick = { showRebootDialog = true },
                             modifier = Modifier.fillMaxWidth(),
@@ -526,16 +564,12 @@ fun RouterScreen(
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(250.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ),
+                                    .height(250.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "No traffic data available",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    text = "No graph data available",
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -568,24 +602,60 @@ fun RouterScreen(
         }
     }
 
+    // Reboot Dialog
     if (showRebootDialog) {
         AlertDialog(
             onDismissRequest = { showRebootDialog = false },
-            title = { Text("Reboot Device?") },
-            text = { Text("This will restart your device. Are you sure?") },
+            title = { Text("Confirm Reboot") },
+            text = { Text("Are you sure you want to reboot this device?") },
             confirmButton = {
-                Button(onClick = {
-                    rebootOnu()
-                    showRebootDialog = false
-                }) {
-                    Text("Reboot")
+                Button(
+                    onClick = {
+                        rebootOnu()
+                        showRebootDialog = false
+                    }
+                ) {
+                    Text("Yes, Reboot")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRebootDialog = false }) {
+                OutlinedButton(onClick = { showRebootDialog = false }) {
                     Text("Cancel")
                 }
             }
+        )
+    }
+
+    // WiFi Credentials Dialog
+    if (showWiFiDialog && onuList.isNotEmpty()) {
+        ChangeWiFiCredentialsDialog(
+            onuName = onuList[selectedOnuIndex].name ?: "Device",
+            onDismiss = { showWiFiDialog = false },
+            onConfirm = { username, password ->
+                isChangingWiFi = true
+                scope.launch {
+                    try {
+                        val selectedOnu = onuList[selectedOnuIndex]
+                        val result = WiFiCredentialManager.changeWiFiCredentials(
+                            onuExternalId = selectedOnu.uniqueExternalId,
+                            newUsername = username,
+                            newPassword = password
+                        )
+
+                        result.onSuccess { message ->
+                            snackbarHostState.showSnackbar(message)
+                            showWiFiDialog = false
+                            android.util.Log.d("RouterScreen", "[v0] WiFi credentials changed successfully")
+                        }.onFailure { error ->
+                            snackbarHostState.showSnackbar("Error: ${error.message}")
+                            android.util.Log.e("RouterScreen", "[v0] WiFi change failed: ${error.message}")
+                        }
+                    } finally {
+                        isChangingWiFi = false
+                    }
+                }
+            },
+            isLoading = isChangingWiFi
         )
     }
 }
@@ -600,7 +670,8 @@ fun DetailItem(label: String, value: String, modifier: Modifier = Modifier) {
         )
         Text(
             text = value,
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
@@ -638,9 +709,6 @@ private fun formatBytes(bytes: Long): String {
 }
 
 private fun parseNetworkSpeed(speedString: String): Long {
-    // Parse speed strings like "1G", "100M", "10M" to bytes
-    // 1G = 1 Gigabit = 1000 Mbps = 125,000,000 bytes/sec
-    // 1M = 1 Megabit = 1 Mbps = 125,000 bytes/sec
     val upperSpeed = speedString.uppercase().trim()
 
     val (value, unit) = if (upperSpeed.endsWith("G")) {
@@ -654,9 +722,9 @@ private fun parseNetworkSpeed(speedString: String): Long {
     }
 
     return when (unit) {
-        "G" -> value * 1_000_000_000 // Gigabits to bytes
-        "M" -> value * 1_000_000    // Megabits to bytes
-        "K" -> value * 1_000        // Kilobits to bytes
-        else -> value               // Already in bytes
+        "G" -> value * 1_000_000_000
+        "M" -> value * 1_000_000
+        "K" -> value * 1_000
+        else -> value
     }
 }

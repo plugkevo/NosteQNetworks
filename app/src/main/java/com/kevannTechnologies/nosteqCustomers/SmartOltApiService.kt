@@ -9,9 +9,11 @@ import com.kevannTechnologies.nosteqCustomers.models.OnuStatusResponse
 import com.kevannTechnologies.nosteqCustomers.models.RebootResponse
 import com.kevannTechnologies.nosteqCustomers.models.SingleOnuStatusResponse
 import com.kevannTechnologies.nosteqCustomers.models.SpeedProfilesResponse
+import com.kevannTechnologies.nosteqCustomers.models.WiFiCredentialResponse
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
+import java.util.concurrent.TimeUnit
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -21,8 +23,8 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 import retrofit2.http.Streaming
-import java.util.concurrent.TimeUnit
-
+import retrofit2.http.FormUrlEncoded
+import retrofit2.http.Field
 
 interface SmartOltApiService {
 
@@ -86,6 +88,15 @@ interface SmartOltApiService {
         @Path("onu_sn") sn: String,
         @Header("X-Token") apiKey: String
     ): Response<AllOnusDetailsResponse>
+
+    @FormUrlEncoded
+    @POST("onu/change_web_user_pass/{onu_external_id}")
+    suspend fun changeWiFiCredentials(
+        @Path("onu_external_id") onuExternalId: String?,
+        @Field("web_user") webUser: String,
+        @Field("web_pass") webPassword: String,
+        @Header("X-Token") apiKey: String
+    ): Response<WiFiCredentialResponse>
 }
 
 object SmartOltClient {

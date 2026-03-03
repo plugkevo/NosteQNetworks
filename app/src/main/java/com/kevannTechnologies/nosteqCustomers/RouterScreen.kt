@@ -30,6 +30,7 @@ import kotlinx.coroutines.launch
 
 
 
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RouterScreen(
@@ -468,7 +469,7 @@ fun RouterScreen(
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
                                     Text(
-                                        text = "Update your router's WiFi username and password",
+                                        text = "Update your router's WiFi SSID and password",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                     )
@@ -574,28 +575,6 @@ fun RouterScreen(
                                 )
                             }
                         }
-
-                        // Traffic Stats
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            TrafficStatItem(
-                                label = "Upload",
-                                value = formatBytes(uploadData),
-                                modifier = Modifier.weight(1f)
-                            )
-                            TrafficStatItem(
-                                label = "Download",
-                                value = formatBytes(downloadData),
-                                modifier = Modifier.weight(1f)
-                            )
-                            TrafficStatItem(
-                                label = "Total",
-                                value = formatBytes(uploadData + downloadData),
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
                     }
                 }
             }
@@ -631,14 +610,14 @@ fun RouterScreen(
         ChangeWiFiCredentialsDialog(
             onuName = onuList[selectedOnuIndex].name ?: "Device",
             onDismiss = { showWiFiDialog = false },
-            onConfirm = { username, password ->
+            onConfirm = { ssid, password ->
                 isChangingWiFi = true
                 scope.launch {
                     try {
                         val selectedOnu = onuList[selectedOnuIndex]
                         val result = WiFiCredentialManager.changeWiFiCredentials(
                             onuExternalId = selectedOnu.uniqueExternalId,
-                            newUsername = username,
+                            newSSID = ssid,
                             newPassword = password
                         )
 

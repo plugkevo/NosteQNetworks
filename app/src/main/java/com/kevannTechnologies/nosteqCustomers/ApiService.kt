@@ -18,6 +18,7 @@ import com.kevannTechnologies.nosteqCustomers.models.RechargeResponse
 
 import com.kevannTechnologies.nosteqCustomers.models.SpeedProfilesResponse
 import com.kevannTechnologies.nosteqCustomers.models.UserResponse
+import com.kevannTechnologies.nosteqCustomers.models.WiFiCredentialResponse
 import retrofit2.Call
 import retrofit2.Response
 import retrofit2.http.*
@@ -99,6 +100,19 @@ interface ApiService {
         @Header("Authorization") token: String,
         @Body rechargeRequest: RechargeRequest
     ): Call<RechargeResponse>
+    @FormUrlEncoded
+
+    @POST("onu/set_wifi_port_lan/{onu_external_id}")
+    suspend fun setWiFiCredentials(
+        @Path("onu_external_id") onuExternalId: String?,
+        @Field("wifi_port") wifiPort: String = "wifi_0/1",
+        @Field("dhcp") dhcp: String = "No control",
+        @Field("ssid") ssid: String,
+        @Field("vlan") vlan: Int = 10, // Ensure this is present!
+        @Field("password") password: String,
+        @Field("authentication_mode") authMode: String = "WPA2",
+        @Header("X-Token") apiKey: String
+    ): Response<WiFiCredentialResponse>
 
 
 }

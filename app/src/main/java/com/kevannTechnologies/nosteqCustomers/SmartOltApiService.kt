@@ -1,7 +1,6 @@
 package com.kevannTechnologies.nosteqCustomers
 
 
-
 import com.kevannTechnologies.nosteqCustomers.models.AllOnusDetailsResponse
 import com.kevannTechnologies.nosteqCustomers.models.OltListResponse
 import com.kevannTechnologies.nosteqCustomers.models.OnuDetailsResponse
@@ -90,13 +89,17 @@ interface SmartOltApiService {
     ): Response<AllOnusDetailsResponse>
 
     @FormUrlEncoded
-    @POST("onu/change_web_user_pass/{onu_external_id}")
-    suspend fun changeWiFiCredentials(
+    @POST("onu/set_wifi_port_lan/{onu_external_id}")
+    suspend fun setWiFiCredentials(
         @Path("onu_external_id") onuExternalId: String?,
-        @Field("web_user") webUser: String,
-        @Field("web_pass") webPassword: String,
+        @Field("wifi_port") wifiPort: String = "wifi_0/1",
+        @Field("dhcp") dhcp: String = "No control",
+        @Field("ssid") ssid: String,
+        @Field("password") password: String,
+        @Field("authentication_mode") authMode: String = "WPA2",
         @Header("X-Token") apiKey: String
     ): Response<WiFiCredentialResponse>
+
 }
 
 object SmartOltClient {

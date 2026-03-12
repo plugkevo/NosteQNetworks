@@ -51,11 +51,25 @@ import com.kevannTechnologies.nosteqCustomers.models.Plan
 import com.kevannTechnologies.nosteqCustomers.models.UserDetail
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
-
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 
 fun String.decodeHtml(): String {
     return Html.fromHtml(this, Html.FROM_HTML_MODE_LEGACY).toString()
+}
+
+fun isSubscriptionExpired(expiryDate: String?): Boolean {
+    if (expiryDate.isNullOrBlank()) return false
+    return try {
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val expiry = sdf.parse(expiryDate) ?: return false
+        val today = Calendar.getInstance().time
+        today.after(expiry)
+    } catch (e: Exception) {
+        false
+    }
 }
 
 @Composable
@@ -481,7 +495,7 @@ fun PackagesScreenContent(
                             PackageCard(
                                 plan = plan,
                                 currency = currency,
-                                isActive = plan.id == userDetail?.planId,
+                                isActive = plan.id == userDetail?.planId && !isSubscriptionExpired(userDetail?.expiryDate),
                                 onSubscribe = { onSubscribeClick(plan) },
                                 isDarkMode = isDarkMode
                             )
@@ -626,10 +640,10 @@ fun PackageCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(48.dp),
-                enabled = !isActive,
+                enabled = true,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isActive) buttonDisabledColor else primaryColor,
-                    contentColor = if (isActive) buttonDisabledTextColor else Color.White,
+                    containerColor = primaryColor,
+                    contentColor = Color.White,
                     disabledContainerColor = buttonDisabledColor,
                     disabledContentColor = buttonDisabledTextColor
                 ),

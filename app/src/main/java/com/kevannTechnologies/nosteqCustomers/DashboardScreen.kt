@@ -26,6 +26,8 @@ import retrofit2.Response
 import java.text.SimpleDateFormat
 import java.util.*
 
+
+
 @Composable
 fun DashboardScreen(navController: NavController) {
     val context = LocalContext.current
@@ -126,14 +128,19 @@ fun DashboardScreen(navController: NavController) {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = when (data?.status) {
-                        0 -> "Active"
-                        1 -> "Inactive"
-                        2 -> "Suspended"
-                        else -> "Unknown"
+                    text = when {
+                        isSubscriptionExpired(data?.expiryDate) -> "Expired"
+                        else -> when (data?.status) {
+                            0 -> "Active"
+                            1 -> "Inactive"
+                            2 -> "Suspended"
+                            else -> "Unknown"
+                        }
                     },
                     style = MaterialTheme.typography.bodyLarge,
-                    color = if (data?.status == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    color = if (isSubscriptionExpired(data?.expiryDate)) MaterialTheme.colorScheme.error
+                    else if (data?.status == 0) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error
                 )
                 Divider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -349,6 +356,8 @@ private fun formatBytes(bytes: Long): String {
     val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
     return String.format("%.2f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
 }
+
+
 
 private fun formatDate(dateString: String?): String {
     if (dateString == null) return "N/A"

@@ -7,6 +7,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -146,6 +148,8 @@ fun PackagesScreen() {
         }
     }
 
+    var numberOfMonths by remember { mutableStateOf(1) }
+
     if (showPaymentDialog && selectedPlan != null) {
         PaymentDialog(
             selectedPlan = selectedPlan!!,
@@ -153,23 +157,28 @@ fun PackagesScreen() {
             currency = currency,
             useCustomPhone = useCustomPhone,
             customPhoneNumber = customPhoneNumber,
+            numberOfMonths = numberOfMonths,
             isProcessing = isProcessing,
             onUseCustomPhoneChange = { useCustomPhone = it },
             onPhoneNumberChange = { customPhoneNumber = it },
+            onNumberOfMonthsChange = { numberOfMonths = it },
             onDismiss = {
                 showPaymentDialog = false
                 useCustomPhone = false
                 customPhoneNumber = ""
+                numberOfMonths = 1
             },
             onConfirmPayment = {
                 // Capture values before resetting
                 val useCustomPhoneValue = useCustomPhone
                 val customPhoneValue = customPhoneNumber
+                val numberOfMonthsValue = numberOfMonths
 
                 // Close the dialog immediately so user can see status messages
                 showPaymentDialog = false
                 useCustomPhone = false
                 customPhoneNumber = ""
+                numberOfMonths = 1
 
                 // Process payment in background with captured values
                 packagesActivity.processPayment(
@@ -177,6 +186,7 @@ fun PackagesScreen() {
                     userDetail = userDetail,
                     useCustomPhone = useCustomPhoneValue,
                     customPhoneNumber = customPhoneValue,
+                    numberOfMonths = numberOfMonthsValue,
                     initialRechargeCount = initialRechargeCount
                 ) { _, _, _, _ -> }
             }
@@ -209,13 +219,17 @@ fun PaymentDialog(
     currency: String,
     useCustomPhone: Boolean,
     customPhoneNumber: String,
+    numberOfMonths: Int,
     isProcessing: Boolean,
     onUseCustomPhoneChange: (Boolean) -> Unit,
     onPhoneNumberChange: (String) -> Unit,
+    onNumberOfMonthsChange: (Int) -> Unit,
     onDismiss: () -> Unit,
     onConfirmPayment: () -> Unit
 ) {
     val decodedCurrency = currency.decodeHtml()
+    val monthlyPrice = selectedPlan.customerCost.toIntOrNull() ?: 0
+    val totalPrice = monthlyPrice * numberOfMonths
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -223,6 +237,78 @@ fun PaymentDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Plan: ${selectedPlan.planName}")
+                Text("Monthly Amount: $decodedCurrency $monthlyPrice")
+
+                // Number of months section
+                Text("Number of Months", fontWeight = FontWeight.Bold)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            if (numberOfMonths > 1) {
+                                onNumberOfMonthsChange(numberOfMonths - 1)
+                            }
+                        },
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("-", fontWeight = FontWeight.Bold)
+                    }
+                    
+                    OutlinedTextField(
+                        value = numberOfMonths.toString(),
+                        onValueChange = { value ->
+                            val newValue = value.toIntOrNull() ?: 1
+                            if (newValue > 0) {
+                                onNumberOfMonthsChange(newValue)
+                            }
+                        },
+                        modifier = Modifier
+                            .width(80.dp),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center)
+                    )
+                    
+                    Button(
+                        onClick = { onNumberOfMonthsChange(numberOfMonths + 1) },
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("+", fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Total Amount",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "$decodedCurrency $totalPrice",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+
                 Text("Amount: $decodedCurrency ${selectedPlan.customerCost}")
 
                 HorizontalDivider()

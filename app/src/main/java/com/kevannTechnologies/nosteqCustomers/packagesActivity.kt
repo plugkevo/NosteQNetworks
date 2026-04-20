@@ -33,6 +33,7 @@ class PackagesActivity(
         userDetail: UserDetail?,
         useCustomPhone: Boolean,
         customPhoneNumber: String,
+        numberOfMonths: Int = 1,
         initialRechargeCount: Int,
         onPaymentStateChange: (Boolean, String?, String?, Boolean) -> Unit
     ) {
@@ -65,9 +66,13 @@ class PackagesActivity(
                                 Log.d("PackagesActivity", "[v0] Initial recharge count set to: $currentInitialCount")
 
                                 // Now proceed with M-Pesa payment
+                                // Calculate total amount based on number of months
+                                val monthlyPrice = selectedPlan?.customerCost?.toIntOrNull() ?: 0
+                                val totalAmount = monthlyPrice * numberOfMonths
+                                
                                 val rechargeRequest = RechargeRequest(
                                     rechargePlan = selectedPlan?.id ?: 0,
-                                    quantity = 1,
+                                    quantity = numberOfMonths,
                                     rechargeType = 1,
                                     resetRecharge = false,
                                     contactPerson = userDetail?.userinfo?.contactPerson ?: "",
@@ -77,7 +82,7 @@ class PackagesActivity(
                                     zip = userDetail?.userinfo?.billingZip ?: ""
                                 )
 
-                                Log.d("PackagesActivity", "[v0] Initiating M-Pesa payment - Plan: ${selectedPlan?.id}, Phone: $phoneToUse")
+                                Log.d("PackagesActivity", "[v0] Initiating M-Pesa payment - Plan: ${selectedPlan?.id}, Months: $numberOfMonths, Total: $totalAmount, Phone: $phoneToUse")
 
                                 // Call the M-Pesa payment endpoint
                                 PackagesApiClient.instance.processMpesaPayment(

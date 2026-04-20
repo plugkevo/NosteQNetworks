@@ -38,7 +38,7 @@ fun SupportDialog(
     username: String,
     onUsernameChange: (String) -> Unit,
     onDismiss: () -> Unit,
-    onSendViaWhatsApp: (String) -> Unit
+    onSendViaWhatsApp: (String, String) -> Unit
 ) {
     if (!showDialog) return
 
@@ -85,7 +85,7 @@ fun SupportDialog(
             Button(
                 onClick = {
                     if (inputUsername.isNotBlank()) {
-                        onSendViaWhatsApp(inputUsername)
+                        onSendViaWhatsApp(inputUsername, dialogType)
                         onDismiss()
                     }
                 }
@@ -276,7 +276,11 @@ fun LoginScreen(
 
                 // Forgot Password
                 TextButton(
-                    onClick = onForgotPasswordClick,
+                    onClick = {
+                        supportDialogType = "forgot_password"
+                        showSupportDialog = true
+                        onForgotPasswordClick()
+                    },
                     modifier = Modifier.align(Alignment.End),
                     enabled = !isLoading
                 ) {
@@ -332,7 +336,11 @@ fun LoginScreen(
                         color = Color.White.copy(alpha = 0.7f)
                     )
                     TextButton(
-                        onClick = onContactSupportClick,
+                        onClick = {
+                            supportDialogType = "contact_support"
+                            showSupportDialog = true
+                            onContactSupportClick()
+                        },
                         enabled = !isLoading
                     ) {
                         Text(
@@ -342,6 +350,16 @@ fun LoginScreen(
                         )
                     }
                 }
+
+                // Support Dialog
+                SupportDialog(
+                    showDialog = showSupportDialog,
+                    dialogType = supportDialogType,
+                    username = username,
+                    onUsernameChange = onUsernameChange,
+                    onDismiss = { showSupportDialog = false },
+                    onSendViaWhatsApp = onSendWhatsAppMessage
+                )
             }
         }
     }

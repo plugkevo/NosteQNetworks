@@ -309,7 +309,6 @@ fun PaymentDialog(
                     }
                 }
 
-                Text("Amount: $decodedCurrency ${selectedPlan.customerCost}")
 
                 HorizontalDivider()
 

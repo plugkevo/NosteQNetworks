@@ -237,7 +237,7 @@ fun PaymentDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Plan: ${selectedPlan.planName}")
-                Text("Monthly Amount: $decodedCurrency $monthlyPrice")
+                Text("Monthly Amount: $decodedCurrency ${selectedPlan.customerCost}")
 
                 // Number of months section
                 Text("Number of Months", fontWeight = FontWeight.Bold)
@@ -259,7 +259,7 @@ fun PaymentDialog(
                     ) {
                         Text("-", fontWeight = FontWeight.Bold)
                     }
-                    
+
                     OutlinedTextField(
                         value = numberOfMonths.toString(),
                         onValueChange = { value ->
@@ -273,7 +273,7 @@ fun PaymentDialog(
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center)
                     )
-                    
+
                     Button(
                         onClick = { onNumberOfMonthsChange(numberOfMonths + 1) },
                         modifier = Modifier.size(40.dp),

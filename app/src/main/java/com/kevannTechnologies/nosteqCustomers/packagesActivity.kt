@@ -67,8 +67,8 @@ class PackagesActivity(
 
                                 // Now proceed with M-Pesa payment
                                 // Calculate total amount based on number of months
-                                val monthlyPrice = selectedPlan?.customerCost?.toIntOrNull() ?: 0
-                                val totalAmount = monthlyPrice * numberOfMonths
+                                val monthlyPrice = selectedPlan?.customerCost?.toDoubleOrNull() ?: 0.0
+                                val totalAmount = (monthlyPrice * numberOfMonths).toLong()
                                 
                                 val rechargeRequest = RechargeRequest(
                                     rechargePlan = selectedPlan?.id ?: 0,

@@ -228,8 +228,8 @@ fun PaymentDialog(
     onConfirmPayment: () -> Unit
 ) {
     val decodedCurrency = currency.decodeHtml()
-    val monthlyPrice = selectedPlan.customerCost.toIntOrNull() ?: 0
-    val totalPrice = monthlyPrice * numberOfMonths
+    val monthlyPrice = selectedPlan.customerCost.toDoubleOrNull() ?: 0.0
+    val totalPrice = (monthlyPrice * numberOfMonths).toLong()
 
     AlertDialog(
         onDismissRequest = onDismiss,

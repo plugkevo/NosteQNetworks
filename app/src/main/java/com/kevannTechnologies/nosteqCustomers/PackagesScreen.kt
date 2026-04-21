@@ -96,9 +96,6 @@ fun PackagesScreen() {
     var isVerifyingPayment by remember { mutableStateOf(false) }
     var pendingCheckoutId by remember { mutableStateOf<String?>(null) }
     var initialRechargeCount by remember { mutableStateOf(0) }
-    var selectedTabIndex by remember { mutableStateOf(0) }
-
-    val tabs = listOf("Home", "Business")
 
     val packagesActivity = remember {
         PackagesActivity(
@@ -193,23 +190,21 @@ fun PackagesScreen() {
         )
     }
 
-    PackagesScreenContent(
-        plans = plans,
-        userDetail = userDetail,
-        currency = currency,
-        isLoading = isLoading,
-        errorMessage = errorMessage,
-        paymentStatusType = paymentStatusType,
-        isVerifyingPayment = isVerifyingPayment,
-        selectedTabIndex = selectedTabIndex,
-        scrollState = scrollState,
-        tabs = tabs,
-        onTabChange = { selectedTabIndex = it },
-        onSubscribeClick = { plan ->
-            selectedPlan = plan
-            showPaymentDialog = true
-        }
-    )
+        PackagesScreenContent(
+            plans = plans,
+            userDetail = userDetail,
+            currency = currency,
+            isLoading = isLoading,
+            errorMessage = errorMessage,
+            paymentStatusType = paymentStatusType,
+            isVerifyingPayment = isVerifyingPayment,
+            scrollState = scrollState,
+            onSubscribeClick = { plan ->
+                selectedPlan = plan
+                showPaymentDialog = true
+                initialRechargeCount = if (plan.id == userDetail?.planId) 1 else 0
+            }
+        )
 }
 
 @Composable
@@ -399,10 +394,7 @@ fun PackagesScreenContent(
     errorMessage: String?,
     paymentStatusType: String?,
     isVerifyingPayment: Boolean,
-    selectedTabIndex: Int,
     scrollState: androidx.compose.foundation.ScrollState,
-    tabs: List<String>,
-    onTabChange: (Int) -> Unit,
     onSubscribeClick: (Plan) -> Unit
 ) {
     Column(
@@ -433,43 +425,7 @@ fun PackagesScreenContent(
             )
         }
 
-        // Tab section
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            val tabContainerColor = if (isDarkMode) Color(0xFF1E1E1E) else Color.White
-            val tabBorderColor = if (isDarkMode) Color(0xFF404040) else Color(0xFFE0E0E0)
-            val tabTextColorInactive = if (isDarkMode) Color(0xFF999999) else Color.Gray
 
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                containerColor = tabContainerColor,
-                contentColor = Color(0xFF00BCD4),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(tabContainerColor, RoundedCornerShape(12.dp))
-                    .border(1.dp, tabBorderColor, RoundedCornerShape(12.dp))
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { onTabChange(index) },
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        text = {
-                            Text(
-                                text = title,
-                                fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = if (selectedTabIndex == index) 16.sp else 14.sp,
-                                color = if (selectedTabIndex == index) Color(0xFF00BCD4) else tabTextColorInactive
-                            )
-                        }
-                    )
-                }
-            }
-        }
 
         // Content section
         Column(
@@ -549,12 +505,28 @@ fun PackagesScreenContent(
                     }
                 }
                 else -> {
-                    val filteredPlans = plans.filter { plan ->
-                        when (selectedTabIndex) {
-                            0 -> !plan.planName.contains("business", ignoreCase = true)
-                            1 -> plan.planName.contains("business", ignoreCase = true)
-                            else -> true
+                    // Determine user's current plan category
+                    val userCurrentPlanCategory = userDetail?.planCategory ?: 0
+                    
+                    // Function to get category group for a plan
+                    fun getCategoryGroup(planName: String, planCategory: Int?): String {
+                        return when {
+                            planCategory != null && planCategory in 3..5 -> "multi" // Double, Triple, Quad (IDs 3, 4, 5 or similar)
+                            planName.contains("double", ignoreCase = true) -> "multi"
+                            planName.contains("triple", ignoreCase = true) -> "multi"
+                            planName.contains("quad", ignoreCase = true) -> "multi"
+                            planName.contains("custom", ignoreCase = true) -> "custom"
+                            planName.contains("business", ignoreCase = true) -> "business"
+                            else -> "home" // Default to home
                         }
+                    }
+                    
+                    // Filter plans based on user's current plan category
+                    val userCategoryGroup = getCategoryGroup(userDetail?.planName ?: "", userCurrentPlanCategory)
+                    
+                    val filteredPlans = plans.filter { plan ->
+                        val planCategoryGroup = getCategoryGroup(plan.planName, plan.planCategory)
+                        planCategoryGroup == userCategoryGroup
                     }
 
                     if (filteredPlans.isEmpty()) {
@@ -568,7 +540,7 @@ fun PackagesScreenContent(
                             colors = CardDefaults.cardColors(containerColor = emptyStateColor)
                         ) {
                             Text(
-                                text = "No ${tabs[selectedTabIndex].lowercase()} packages available",
+                                text = "No packages available in your category",
                                 modifier = Modifier.padding(32.dp),
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center,

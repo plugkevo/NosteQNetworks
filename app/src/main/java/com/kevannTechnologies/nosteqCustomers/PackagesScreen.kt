@@ -524,23 +524,29 @@ fun PackagesScreenContent(
                     // Filter plans based on user's current plan category
                     val userCategoryGroup = getCategoryGroup(userDetail?.planName ?: "", userCurrentPlanCategory)
                     
-                    val filteredPlans = plans.filter { plan ->
+                    // First, filter plans by category
+                    val categoryFilteredPlans = plans.filter { plan ->
                         val planCategoryGroup = getCategoryGroup(plan.planName, plan.planCategory)
+                        planCategoryGroup == userCategoryGroup
+                    }
+                    
+                    // Then apply range filtering for home category
+                    val filteredPlans = if (userCategoryGroup == "home" && userDetail != null) {
+                        // Find the index of the user's current plan in the category-filtered list
+                        val currentPlanIndex = categoryFilteredPlans.indexOfFirst { it.id == userDetail.planId }
                         
-                        if (planCategoryGroup == userCategoryGroup) {
-                            // For home category, apply range filtering (current plan ±2)
-                            if (userCategoryGroup == "home" && userDetail != null) {
-                                val userPlanId = userDetail.planId
-                                val planId = plan.id
-                                // Show plans within range: current plan -2 to +2
-                                planId >= userPlanId - 2 && planId <= userPlanId + 2
-                            } else {
-                                // For other categories (business, custom, multi), show all in category
-                                true
-                            }
+                        if (currentPlanIndex >= 0) {
+                            // Show 2 packages before and 2 packages after the current plan
+                            val startIndex = maxOf(0, currentPlanIndex - 2)
+                            val endIndex = minOf(categoryFilteredPlans.size - 1, currentPlanIndex + 2)
+                            categoryFilteredPlans.subList(startIndex, endIndex + 1)
                         } else {
-                            false
+                            // If current plan not found in category, show all
+                            categoryFilteredPlans
                         }
+                    } else {
+                        // For other categories (business, custom, multi), show all in category
+                        categoryFilteredPlans
                     }
 
                     if (filteredPlans.isEmpty()) {

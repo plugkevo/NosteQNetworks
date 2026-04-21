@@ -526,7 +526,21 @@ fun PackagesScreenContent(
                     
                     val filteredPlans = plans.filter { plan ->
                         val planCategoryGroup = getCategoryGroup(plan.planName, plan.planCategory)
-                        planCategoryGroup == userCategoryGroup
+                        
+                        if (planCategoryGroup == userCategoryGroup) {
+                            // For home category, apply range filtering (current plan ±2)
+                            if (userCategoryGroup == "home" && userDetail != null) {
+                                val userPlanId = userDetail.planId
+                                val planId = plan.id
+                                // Show plans within range: current plan -2 to +2
+                                planId >= userPlanId - 2 && planId <= userPlanId + 2
+                            } else {
+                                // For other categories (business, custom, multi), show all in category
+                                true
+                            }
+                        } else {
+                            false
+                        }
                     }
 
                     if (filteredPlans.isEmpty()) {

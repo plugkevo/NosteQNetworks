@@ -532,17 +532,29 @@ fun PackagesScreenContent(
                     
                     // Then apply range filtering for home category
                     val filteredPlans = if (userCategoryGroup == "home" && userDetail != null) {
-                        // Find the index of the user's current plan in the category-filtered list
-                        val currentPlanIndex = categoryFilteredPlans.indexOfFirst { it.id == userDetail.planId }
+                        // Sort plans by price
+                        val sortedByPrice = categoryFilteredPlans.sortedBy { it.customerCost.toDoubleOrNull() ?: 0.0 }
                         
-                        if (currentPlanIndex >= 0) {
-                            // Show 2 packages before and 2 packages after the current plan
-                            val startIndex = maxOf(0, currentPlanIndex - 2)
-                            val endIndex = minOf(categoryFilteredPlans.size - 1, currentPlanIndex + 2)
-                            categoryFilteredPlans.subList(startIndex, endIndex + 1)
+                        // Find the current plan in the price-sorted list
+                        val currentPlan = sortedByPrice.find { it.id == userDetail.planId }
+                        
+                        if (currentPlan != null) {
+                            val currentPlanPrice = currentPlan.customerCost.toDoubleOrNull() ?: 0.0
+                            
+                            // Find 2 plans with lower prices and 2 plans with higher prices
+                            val lowerPricedPlans = sortedByPrice.filter { 
+                                it.customerCost.toDoubleOrNull() ?: 0.0 < currentPlanPrice 
+                            }.takeLast(2)
+                            
+                            val higherPricedPlans = sortedByPrice.filter { 
+                                it.customerCost.toDoubleOrNull() ?: 0.0 > currentPlanPrice 
+                            }.take(2)
+                            
+                            // Combine in order: lower prices, current plan, higher prices
+                            (lowerPricedPlans + currentPlan + higherPricedPlans).distinctBy { it.id }
                         } else {
-                            // If current plan not found in category, show all
-                            categoryFilteredPlans
+                            // If current plan not found in category, show all sorted by price
+                            sortedByPrice
                         }
                     } else {
                         // For other categories (business, custom, multi), show all in category

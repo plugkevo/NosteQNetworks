@@ -530,8 +530,8 @@ fun PackagesScreenContent(
                         planCategoryGroup == userCategoryGroup
                     }
                     
-                    // Then apply range filtering for home category
-                    val filteredPlans = if (userCategoryGroup == "home" && userDetail != null) {
+                    // Apply price-based range filtering to all categories
+                    val filteredPlans = if (userDetail != null) {
                         // Sort plans by price
                         val sortedByPrice = categoryFilteredPlans.sortedBy { it.customerCost.toDoubleOrNull() ?: 0.0 }
                         
@@ -557,7 +557,7 @@ fun PackagesScreenContent(
                             sortedByPrice
                         }
                     } else {
-                        // For other categories (business, custom, multi), show all in category
+                        // If no user detail, show all category filtered plans
                         categoryFilteredPlans
                     }
 

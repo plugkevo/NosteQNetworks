@@ -1,6 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -79,6 +80,27 @@ class LoginActivity : ComponentActivity() {
                         })
                     }
 
+                    fun sendWhatsAppMessage(inputUsername: String, dialogType: String) {
+                        // Support team WhatsApp number (replace with actual number)
+                        val supportPhoneNumber = "254743101738" // Format: country code without + (e.g., 254 for Kenya, 1 for USA)
+
+                        val message = if (dialogType == "forgot_password") {
+                            "Hello, I need help resetting my password. My username is: $inputUsername"
+                        } else {
+                            "Hello, I need assistance with my account. My username is: $inputUsername"
+                        }
+
+                        try {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_VIEW
+                                data = Uri.parse("https://wa.me/$supportPhoneNumber?text=${Uri.encode(message)}")
+                            }
+                            startActivity(sendIntent)
+                        } catch (e: Exception) {
+                            errorMessage = "WhatsApp is not installed or could not open"
+                        }
+                    }
+
                     LoginScreen(
                         username = username,
                         password = password,
@@ -94,7 +116,10 @@ class LoginActivity : ComponentActivity() {
                             errorMessage = null
                         },
                         onPasswordVisibleChange = { passwordVisible = it },
-                        onLoginClick = { performLogin() }
+                        onLoginClick = { performLogin() },
+                        onSendWhatsAppMessage = { inputUsername, dialogType ->
+                            sendWhatsAppMessage(inputUsername, dialogType)
+                        }
                     )
                 }
             }

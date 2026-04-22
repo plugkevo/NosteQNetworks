@@ -51,6 +51,8 @@ data class UserDetail(
     val planName: String,
     @SerializedName("plan_id")
     val planId: Int,
+    @SerializedName("planCategory")
+    val planCategory: Int = 0,
     val status: Int,
     val startDate: String,
     val expiryDate: String,

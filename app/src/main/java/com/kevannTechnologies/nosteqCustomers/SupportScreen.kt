@@ -71,7 +71,7 @@ fun SupportScreen() {
                 ClickableContactRow(
                     icon = FontAwesomeIcons.Solid.Phone,
                     label = "Call Us",
-                    value = "+254 743 101738",
+                    value = "020 500 6090",
                     onClick = {
                         val intent = Intent(Intent.ACTION_DIAL).apply {
                             data = Uri.parse("tel:+254743101738")
@@ -136,23 +136,12 @@ fun SupportScreen() {
 
         FAQCard(
             question = "What payment methods are accepted?",
-            answer = "We accept M-Pesa, bank transfers, and card payments."
+            answer = "We accept M-Pesa"
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Text(
-            text = "Developed by Kevann Technologies ❤️",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-        Text(
-            text = "Tel: 0790875188",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
+
     }
 }
 

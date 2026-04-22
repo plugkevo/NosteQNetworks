@@ -1,5 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +21,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -28,9 +31,75 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+@Composable
+fun SupportDialog(
+    showDialog: Boolean,
+    dialogType: String, // "forgot_password" or "contact_support"
+    username: String,
+    onUsernameChange: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSendViaWhatsApp: (String, String) -> Unit
+) {
+    if (!showDialog) return
 
+    val context = LocalContext.current
+    var inputUsername by remember { mutableStateOf(username) }
 
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (dialogType == "forgot_password")
+                    "Reset Password"
+                else
+                    "Contact Support"
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = if (dialogType == "forgot_password")
+                        "Please enter your username to reset your password:"
+                    else
+                        "Please enter your username so our support team can assist you:",
+                    style = MaterialTheme.typography.bodyMedium
+                )
 
+                OutlinedTextField(
+                    value = inputUsername,
+                    onValueChange = { inputUsername = it },
+                    label = { Text("Username") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Done
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (inputUsername.isNotBlank()) {
+                        onSendViaWhatsApp(inputUsername, dialogType)
+                        onDismiss()
+                    }
+                }
+            ) {
+                Text("Send via WhatsApp")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
 
 @Composable
 fun LoginScreen(
@@ -44,10 +113,13 @@ fun LoginScreen(
     onPasswordVisibleChange: (Boolean) -> Unit,
     onLoginClick: () -> Unit,
     onForgotPasswordClick: () -> Unit = {},
-    onContactSupportClick: () -> Unit = {}
+    onContactSupportClick: () -> Unit = {},
+    onSendWhatsAppMessage: (String, String) -> Unit = { _, _ -> }
 ) {
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
+    var showSupportDialog by remember { mutableStateOf(false) }
+    var supportDialogType by remember { mutableStateOf("") } // "forgot_password" or "contact_support"
 
     // Gradient colors - Deep blue to teal blend
     val gradientColors = listOf(
@@ -204,7 +276,11 @@ fun LoginScreen(
 
                 // Forgot Password
                 TextButton(
-                    onClick = onForgotPasswordClick,
+                    onClick = {
+                        supportDialogType = "forgot_password"
+                        showSupportDialog = true
+                        onForgotPasswordClick()
+                    },
                     modifier = Modifier.align(Alignment.End),
                     enabled = !isLoading
                 ) {
@@ -260,7 +336,11 @@ fun LoginScreen(
                         color = Color.White.copy(alpha = 0.7f)
                     )
                     TextButton(
-                        onClick = onContactSupportClick,
+                        onClick = {
+                            supportDialogType = "contact_support"
+                            showSupportDialog = true
+                            onContactSupportClick()
+                        },
                         enabled = !isLoading
                     ) {
                         Text(
@@ -270,6 +350,16 @@ fun LoginScreen(
                         )
                     }
                 }
+
+                // Support Dialog
+                SupportDialog(
+                    showDialog = showSupportDialog,
+                    dialogType = supportDialogType,
+                    username = username,
+                    onUsernameChange = onUsernameChange,
+                    onDismiss = { showSupportDialog = false },
+                    onSendViaWhatsApp = onSendWhatsAppMessage
+                )
             }
         }
     }

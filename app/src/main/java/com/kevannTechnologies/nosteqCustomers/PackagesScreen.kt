@@ -7,6 +7,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -94,9 +96,6 @@ fun PackagesScreen() {
     var isVerifyingPayment by remember { mutableStateOf(false) }
     var pendingCheckoutId by remember { mutableStateOf<String?>(null) }
     var initialRechargeCount by remember { mutableStateOf(0) }
-    var selectedTabIndex by remember { mutableStateOf(0) }
-
-    val tabs = listOf("Home", "Business")
 
     val packagesActivity = remember {
         PackagesActivity(
@@ -146,6 +145,8 @@ fun PackagesScreen() {
         }
     }
 
+    var numberOfMonths by remember { mutableStateOf(1) }
+
     if (showPaymentDialog && selectedPlan != null) {
         PaymentDialog(
             selectedPlan = selectedPlan!!,
@@ -153,23 +154,28 @@ fun PackagesScreen() {
             currency = currency,
             useCustomPhone = useCustomPhone,
             customPhoneNumber = customPhoneNumber,
+            numberOfMonths = numberOfMonths,
             isProcessing = isProcessing,
             onUseCustomPhoneChange = { useCustomPhone = it },
             onPhoneNumberChange = { customPhoneNumber = it },
+            onNumberOfMonthsChange = { numberOfMonths = it },
             onDismiss = {
                 showPaymentDialog = false
                 useCustomPhone = false
                 customPhoneNumber = ""
+                numberOfMonths = 1
             },
             onConfirmPayment = {
                 // Capture values before resetting
                 val useCustomPhoneValue = useCustomPhone
                 val customPhoneValue = customPhoneNumber
+                val numberOfMonthsValue = numberOfMonths
 
                 // Close the dialog immediately so user can see status messages
                 showPaymentDialog = false
                 useCustomPhone = false
                 customPhoneNumber = ""
+                numberOfMonths = 1
 
                 // Process payment in background with captured values
                 packagesActivity.processPayment(
@@ -177,6 +183,7 @@ fun PackagesScreen() {
                     userDetail = userDetail,
                     useCustomPhone = useCustomPhoneValue,
                     customPhoneNumber = customPhoneValue,
+                    numberOfMonths = numberOfMonthsValue,
                     initialRechargeCount = initialRechargeCount
                 ) { _, _, _, _ -> }
             }
@@ -191,13 +198,11 @@ fun PackagesScreen() {
         errorMessage = errorMessage,
         paymentStatusType = paymentStatusType,
         isVerifyingPayment = isVerifyingPayment,
-        selectedTabIndex = selectedTabIndex,
         scrollState = scrollState,
-        tabs = tabs,
-        onTabChange = { selectedTabIndex = it },
         onSubscribeClick = { plan ->
             selectedPlan = plan
             showPaymentDialog = true
+            initialRechargeCount = if (plan.id == userDetail?.planId) 1 else 0
         }
     )
 }
@@ -209,13 +214,17 @@ fun PaymentDialog(
     currency: String,
     useCustomPhone: Boolean,
     customPhoneNumber: String,
+    numberOfMonths: Int,
     isProcessing: Boolean,
     onUseCustomPhoneChange: (Boolean) -> Unit,
     onPhoneNumberChange: (String) -> Unit,
+    onNumberOfMonthsChange: (Int) -> Unit,
     onDismiss: () -> Unit,
     onConfirmPayment: () -> Unit
 ) {
     val decodedCurrency = currency.decodeHtml()
+    val monthlyPrice = selectedPlan.customerCost.toDoubleOrNull() ?: 0.0
+    val totalPrice = (monthlyPrice * numberOfMonths).toLong()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -223,7 +232,78 @@ fun PaymentDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Plan: ${selectedPlan.planName}")
-                Text("Amount: $decodedCurrency ${selectedPlan.customerCost}")
+                Text("Monthly Amount: $decodedCurrency ${selectedPlan.customerCost}")
+
+                // Number of months section
+                Text("Number of Months", fontWeight = FontWeight.Bold)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            if (numberOfMonths > 1) {
+                                onNumberOfMonthsChange(numberOfMonths - 1)
+                            }
+                        },
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("-", fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedTextField(
+                        value = numberOfMonths.toString(),
+                        onValueChange = { value ->
+                            val newValue = value.toIntOrNull() ?: 1
+                            if (newValue > 0) {
+                                onNumberOfMonthsChange(newValue)
+                            }
+                        },
+                        modifier = Modifier
+                            .width(80.dp),
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(textAlign = TextAlign.Center)
+                    )
+
+                    Button(
+                        onClick = { onNumberOfMonthsChange(numberOfMonths + 1) },
+                        modifier = Modifier.size(40.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text("+", fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "Total Amount",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            "$decodedCurrency $totalPrice",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+
 
                 HorizontalDivider()
 
@@ -314,10 +394,7 @@ fun PackagesScreenContent(
     errorMessage: String?,
     paymentStatusType: String?,
     isVerifyingPayment: Boolean,
-    selectedTabIndex: Int,
     scrollState: androidx.compose.foundation.ScrollState,
-    tabs: List<String>,
-    onTabChange: (Int) -> Unit,
     onSubscribeClick: (Plan) -> Unit
 ) {
     Column(
@@ -348,43 +425,7 @@ fun PackagesScreenContent(
             )
         }
 
-        // Tab section
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            val tabContainerColor = if (isDarkMode) Color(0xFF1E1E1E) else Color.White
-            val tabBorderColor = if (isDarkMode) Color(0xFF404040) else Color(0xFFE0E0E0)
-            val tabTextColorInactive = if (isDarkMode) Color(0xFF999999) else Color.Gray
 
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                containerColor = tabContainerColor,
-                contentColor = Color(0xFF00BCD4),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(tabContainerColor, RoundedCornerShape(12.dp))
-                    .border(1.dp, tabBorderColor, RoundedCornerShape(12.dp))
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { onTabChange(index) },
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        text = {
-                            Text(
-                                text = title,
-                                fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                fontSize = if (selectedTabIndex == index) 16.sp else 14.sp,
-                                color = if (selectedTabIndex == index) Color(0xFF00BCD4) else tabTextColorInactive
-                            )
-                        }
-                    )
-                }
-            }
-        }
 
         // Content section
         Column(
@@ -464,12 +505,60 @@ fun PackagesScreenContent(
                     }
                 }
                 else -> {
-                    val filteredPlans = plans.filter { plan ->
-                        when (selectedTabIndex) {
-                            0 -> !plan.planName.contains("business", ignoreCase = true)
-                            1 -> plan.planName.contains("business", ignoreCase = true)
-                            else -> true
+                    // Determine user's current plan category
+                    val userCurrentPlanCategory = userDetail?.planCategory ?: 0
+
+                    // Function to get category group for a plan
+                    fun getCategoryGroup(planName: String, planCategory: Int?): String {
+                        return when {
+                            planCategory != null && planCategory in 3..5 -> "multi" // Double, Triple, Quad (IDs 3, 4, 5 or similar)
+                            planName.contains("double", ignoreCase = true) -> "multi"
+                            planName.contains("triple", ignoreCase = true) -> "multi"
+                            planName.contains("quad", ignoreCase = true) -> "multi"
+                            planName.contains("custom", ignoreCase = true) -> "custom"
+                            planName.contains("business", ignoreCase = true) -> "business"
+                            else -> "home" // Default to home
                         }
+                    }
+
+                    // Filter plans based on user's current plan category
+                    val userCategoryGroup = getCategoryGroup(userDetail?.planName ?: "", userCurrentPlanCategory)
+
+                    // First, filter plans by category
+                    val categoryFilteredPlans = plans.filter { plan ->
+                        val planCategoryGroup = getCategoryGroup(plan.planName, plan.planCategory)
+                        planCategoryGroup == userCategoryGroup
+                    }
+
+                    // Apply price-based range filtering to all categories
+                    val filteredPlans = if (userDetail != null) {
+                        // Sort plans by price
+                        val sortedByPrice = categoryFilteredPlans.sortedBy { it.customerCost.toDoubleOrNull() ?: 0.0 }
+
+                        // Find the current plan in the price-sorted list
+                        val currentPlan = sortedByPrice.find { it.id == userDetail.planId }
+
+                        if (currentPlan != null) {
+                            val currentPlanPrice = currentPlan.customerCost.toDoubleOrNull() ?: 0.0
+
+                            // Find 2 plans with lower prices and 2 plans with higher prices
+                            val lowerPricedPlans = sortedByPrice.filter {
+                                it.customerCost.toDoubleOrNull() ?: 0.0 < currentPlanPrice
+                            }.takeLast(2)
+
+                            val higherPricedPlans = sortedByPrice.filter {
+                                it.customerCost.toDoubleOrNull() ?: 0.0 > currentPlanPrice
+                            }.take(2)
+
+                            // Combine in order: lower prices, current plan, higher prices
+                            (lowerPricedPlans + currentPlan + higherPricedPlans).distinctBy { it.id }
+                        } else {
+                            // If current plan not found in category, show all sorted by price
+                            sortedByPrice
+                        }
+                    } else {
+                        // If no user detail, show all category filtered plans
+                        categoryFilteredPlans
                     }
 
                     if (filteredPlans.isEmpty()) {
@@ -483,7 +572,7 @@ fun PackagesScreenContent(
                             colors = CardDefaults.cardColors(containerColor = emptyStateColor)
                         ) {
                             Text(
-                                text = "No ${tabs[selectedTabIndex].lowercase()} packages available",
+                                text = "No packages available in your category",
                                 modifier = Modifier.padding(32.dp),
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = TextAlign.Center,

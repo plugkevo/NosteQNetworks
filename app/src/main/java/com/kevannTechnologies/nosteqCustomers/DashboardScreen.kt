@@ -279,6 +279,7 @@ fun DashboardScreen(navController: NavController) {
             QuickActionCard(
                 icon = Icons.Filled.List,
                 title = "Packages",
+                description = "Explore plans",
                 modifier = Modifier.weight(1f),
                 onClick = {
                     navController.navigate("packages") {
@@ -293,6 +294,7 @@ fun DashboardScreen(navController: NavController) {
             QuickActionCard(
                 icon = Icons.Filled.AccountBox,
                 title = "Billing",
+                description = "Receipts & Invoices",
                 modifier = Modifier.weight(1f),
                 onClick = {
                     navController.navigate("billing") {
@@ -313,6 +315,7 @@ fun DashboardScreen(navController: NavController) {
             QuickActionCard(
                 icon = Icons.Filled.Router,
                 title = "Router",
+                description = "Manage device",
                 modifier = Modifier.weight(1f),
                 onClick = {
                     navController.navigate("router") {
@@ -327,6 +330,7 @@ fun DashboardScreen(navController: NavController) {
             QuickActionCard(
                 icon = Icons.Filled.Info,
                 title = "Support",
+                description = "Contact us",
                 modifier = Modifier.weight(1f),
                 onClick = {
                     navController.navigate("support") {
@@ -346,6 +350,7 @@ fun DashboardScreen(navController: NavController) {
 fun QuickActionCard(
     icon: ImageVector,
     title: String,
+    description: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
@@ -370,6 +375,11 @@ fun QuickActionCard(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

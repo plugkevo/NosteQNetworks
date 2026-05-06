@@ -54,6 +54,9 @@ fun RouterScreen(
     var graphImageUri by remember { mutableStateOf<String?>(null) }
     var uploadData by remember { mutableStateOf<Long>(0L) }
     var downloadData by remember { mutableStateOf<Long>(0L) }
+    var isEnablingDisabling by remember { mutableStateOf(false) }
+    var showOnuStatusDialog by remember { mutableStateOf(false) }
+    var onuStatusDialogType by remember { mutableStateOf("") } // "enable" or "disable"
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -240,6 +243,102 @@ fun RouterScreen(
                 }
             } catch (e: Exception) {
                 AppLogger.logError("RouterScreen: Reboot failed", e)
+                snackbarHostState.showSnackbar(
+                    message = "Network error. Please check your connection",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
+
+    fun enableOnu() {
+        if (onuList.isEmpty()) return
+
+        scope.launch {
+            try {
+                val selectedOnu = onuList[selectedOnuIndex]
+                isEnablingDisabling = true
+
+                AppLogger.logInfo("RouterScreen: Enabling ONU",
+                    mapOf("onuExternalId" to selectedOnu.uniqueExternalId) as Map<String, String>
+                )
+
+                val response = SmartOltClient.apiService.enableOnu(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                isEnablingDisabling = false
+
+                AppLogger.logApiCall(
+                    endpoint = "enableOnu",
+                    success = response.isSuccessful && response.body()?.status == true,
+                    responseCode = response.code()
+                )
+
+                if (response.isSuccessful && response.body()?.status == true) {
+                    snackbarHostState.showSnackbar(
+                        message = "ONU enabled successfully",
+                        duration = SnackbarDuration.Short
+                    )
+                    showOnuStatusDialog = false
+                } else {
+                    snackbarHostState.showSnackbar(
+                        message = "Unable to enable ONU. Please try again",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            } catch (e: Exception) {
+                isEnablingDisabling = false
+                AppLogger.logError("RouterScreen: Enable ONU failed", e)
+                snackbarHostState.showSnackbar(
+                    message = "Network error. Please check your connection",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
+
+    fun disableOnu() {
+        if (onuList.isEmpty()) return
+
+        scope.launch {
+            try {
+                val selectedOnu = onuList[selectedOnuIndex]
+                isEnablingDisabling = true
+
+                AppLogger.logInfo("RouterScreen: Disabling ONU",
+                    mapOf("onuExternalId" to selectedOnu.uniqueExternalId) as Map<String, String>
+                )
+
+                val response = SmartOltClient.apiService.disableOnu(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                isEnablingDisabling = false
+
+                AppLogger.logApiCall(
+                    endpoint = "disableOnu",
+                    success = response.isSuccessful && response.body()?.status == true,
+                    responseCode = response.code()
+                )
+
+                if (response.isSuccessful && response.body()?.status == true) {
+                    snackbarHostState.showSnackbar(
+                        message = "ONU disabled successfully",
+                        duration = SnackbarDuration.Short
+                    )
+                    showOnuStatusDialog = false
+                } else {
+                    snackbarHostState.showSnackbar(
+                        message = "Unable to disable ONU. Please try again",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            } catch (e: Exception) {
+                isEnablingDisabling = false
+                AppLogger.logError("RouterScreen: Disable ONU failed", e)
                 snackbarHostState.showSnackbar(
                     message = "Network error. Please check your connection",
                     duration = SnackbarDuration.Short
@@ -483,6 +582,44 @@ fun RouterScreen(
                             }
                         }
 
+                        // Reboot and Enable/Disable Buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { 
+                                    onuStatusDialogType = "enable"
+                                    showOnuStatusDialog = true 
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = !isEnablingDisabling,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF4CAF50)
+                                )
+                            ) {
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Enable")
+                            }
+
+                            Button(
+                                onClick = { 
+                                    onuStatusDialogType = "disable"
+                                    showOnuStatusDialog = true 
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = !isEnablingDisabling,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFFF9800)
+                                )
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Disable")
+                            }
+                        }
+
                         // Reboot Device Button
                         Button(
                             onClick = { showRebootDialog = true },
@@ -599,6 +736,51 @@ fun RouterScreen(
             },
             dismissButton = {
                 OutlinedButton(onClick = { showRebootDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // ONU Enable/Disable Dialog
+    if (showOnuStatusDialog) {
+        val isEnable = onuStatusDialogType == "enable"
+        val titleText = if (isEnable) "Enable ONU" else "Disable ONU"
+        val messageText = if (isEnable) 
+            "Are you sure you want to enable this ONU? This will bring the device online." 
+        else 
+            "Are you sure you want to disable this ONU? This will take the device offline."
+        val buttonText = if (isEnable) "Yes, Enable" else "Yes, Disable"
+
+        AlertDialog(
+            onDismissRequest = { showOnuStatusDialog = false },
+            title = { Text(titleText) },
+            text = { Text(messageText) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isEnable) enableOnu() else disableOnu()
+                    },
+                    enabled = !isEnablingDisabling,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                    )
+                ) {
+                    if (isEnablingDisabling) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(buttonText)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showOnuStatusDialog = false },
+                    enabled = !isEnablingDisabling
+                ) {
                     Text("Cancel")
                 }
             }

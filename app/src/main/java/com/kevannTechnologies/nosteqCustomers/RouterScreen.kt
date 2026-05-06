@@ -1,6 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -584,10 +585,10 @@ fun RouterScreen(
 
                         // ONU Status Toggle Card
                         if (onuList.isNotEmpty()) {
-                            val isOnuEnabled = onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "up" || 
-                                               onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "enabled" ||
-                                               onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "1"
-                            
+                            val isOnuEnabled = onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "up" ||
+                                    onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "enabled" ||
+                                    onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "1"
+
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -598,9 +599,9 @@ fun RouterScreen(
                                     ),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = CardDefaults.cardColors(
-                                    containerColor = if (isOnuEnabled) 
-                                        Color(0xFF4CAF50).copy(alpha = 0.1f) 
-                                    else 
+                                    containerColor = if (isOnuEnabled)
+                                        Color(0xFF4CAF50).copy(alpha = 0.1f)
+                                    else
                                         Color(0xFFFF9800).copy(alpha = 0.1f)
                                 )
                             ) {
@@ -647,9 +648,9 @@ fun RouterScreen(
 
                                     // Description
                                     Text(
-                                        text = if (isOnuEnabled) 
-                                            "Your device is currently online and active" 
-                                        else 
+                                        text = if (isOnuEnabled)
+                                            "Your device is currently online and active"
+                                        else
                                             "Your device is currently offline",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
@@ -664,9 +665,9 @@ fun RouterScreen(
                                         modifier = Modifier.fillMaxWidth(),
                                         enabled = !isEnablingDisabling,
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (isOnuEnabled) 
-                                                Color(0xFF4CAF50) 
-                                            else 
+                                            containerColor = if (isOnuEnabled)
+                                                Color(0xFF4CAF50)
+                                            else
                                                 Color(0xFF4CAF50)
                                         )
                                     ) {
@@ -678,9 +679,9 @@ fun RouterScreen(
                                             Spacer(modifier = Modifier.width(8.dp))
                                         }
                                         Icon(
-                                            imageVector = if (isOnuEnabled) 
-                                                Icons.Default.PowerSettingsNew 
-                                            else 
+                                            imageVector = if (isOnuEnabled)
+                                                Icons.Default.PowerSettingsNew
+                                            else
                                                 Icons.Default.Check,
                                             contentDescription = null,
                                             modifier = Modifier.size(18.dp)
@@ -821,9 +822,9 @@ fun RouterScreen(
     if (showOnuStatusDialog) {
         val isEnable = onuStatusDialogType == "enable"
         val titleText = if (isEnable) "Turn On Device?" else "Turn Off Device?"
-        val messageText = if (isEnable) 
-            "Turning on your device will bring it online and restore service." 
-        else 
+        val messageText = if (isEnable)
+            "Turning on your device will bring it online and restore service."
+        else
             "Turning off your device will take it offline and stop service. You can turn it back on anytime."
         val buttonText = if (isEnable) "Turn On" else "Turn Off"
 

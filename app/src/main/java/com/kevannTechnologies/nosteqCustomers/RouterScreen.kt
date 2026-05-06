@@ -582,41 +582,116 @@ fun RouterScreen(
                             }
                         }
 
-                        // Reboot and Enable/Disable Buttons
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = { 
-                                    onuStatusDialogType = "enable"
-                                    showOnuStatusDialog = true 
-                                },
-                                modifier = Modifier.weight(1f),
-                                enabled = !isEnablingDisabling,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF4CAF50)
+                        // ONU Status Toggle Card
+                        if (onuList.isNotEmpty()) {
+                            val isOnuEnabled = onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "up" || 
+                                               onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "enabled" ||
+                                               onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "1"
+                            
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isOnuEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isOnuEnabled) 
+                                        Color(0xFF4CAF50).copy(alpha = 0.1f) 
+                                    else 
+                                        Color(0xFFFF9800).copy(alpha = 0.1f)
                                 )
                             ) {
-                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Enable")
-                            }
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    // Header with status indicator
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Device Status",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                            )
+                                            Row(
+                                                modifier = Modifier.padding(top = 4.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(12.dp)
+                                                        .background(
+                                                            color = if (isOnuEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                                                            shape = RoundedCornerShape(50)
+                                                        )
+                                                )
+                                                Text(
+                                                    text = if (isOnuEnabled) "Online" else "Offline",
+                                                    style = MaterialTheme.typography.headlineSmall,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isOnuEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                                                )
+                                            }
+                                        }
+                                    }
 
-                            Button(
-                                onClick = { 
-                                    onuStatusDialogType = "disable"
-                                    showOnuStatusDialog = true 
-                                },
-                                modifier = Modifier.weight(1f),
-                                enabled = !isEnablingDisabling,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFFF9800)
-                                )
-                            ) {
-                                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Disable")
+                                    // Description
+                                    Text(
+                                        text = if (isOnuEnabled) 
+                                            "Your device is currently online and active" 
+                                        else 
+                                            "Your device is currently offline",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                    )
+
+                                    // Toggle Button
+                                    Button(
+                                        onClick = {
+                                            onuStatusDialogType = if (isOnuEnabled) "disable" else "enable"
+                                            showOnuStatusDialog = true
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = !isEnablingDisabling,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (isOnuEnabled) 
+                                                Color(0xFF4CAF50) 
+                                            else 
+                                                Color(0xFF4CAF50)
+                                        )
+                                    ) {
+                                        if (isEnablingDisabling) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                color = Color.White
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        }
+                                        Icon(
+                                            imageVector = if (isOnuEnabled) 
+                                                Icons.Default.PowerSettingsNew 
+                                            else 
+                                                Icons.Default.Check,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (isOnuEnabled) "Turn Off" else "Turn On",
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -745,12 +820,12 @@ fun RouterScreen(
     // ONU Enable/Disable Dialog
     if (showOnuStatusDialog) {
         val isEnable = onuStatusDialogType == "enable"
-        val titleText = if (isEnable) "Enable ONU" else "Disable ONU"
+        val titleText = if (isEnable) "Turn On Device?" else "Turn Off Device?"
         val messageText = if (isEnable) 
-            "Are you sure you want to enable this ONU? This will bring the device online." 
+            "Turning on your device will bring it online and restore service." 
         else 
-            "Are you sure you want to disable this ONU? This will take the device offline."
-        val buttonText = if (isEnable) "Yes, Enable" else "Yes, Disable"
+            "Turning off your device will take it offline and stop service. You can turn it back on anytime."
+        val buttonText = if (isEnable) "Turn On" else "Turn Off"
 
         AlertDialog(
             onDismissRequest = { showOnuStatusDialog = false },
@@ -763,7 +838,7 @@ fun RouterScreen(
                     },
                     enabled = !isEnablingDisabling,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                        containerColor = Color(0xFF4CAF50)
                     )
                 ) {
                     if (isEnablingDisabling) {

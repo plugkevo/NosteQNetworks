@@ -963,38 +963,6 @@ fun QuickActionCard(
             )
         }
     }
-    // WiFi Credentials Dialog
-    if (showWiFiDialog && onuList.isNotEmpty()) {
-        ChangeWiFiCredentialsDialog(
-            onuName = onuList[selectedOnuIndex].name ?: "Device",
-            onDismiss = { showWiFiDialog = false },
-            onConfirm = { ssid, password ->
-                isChangingWiFi = true
-                scope.launch {
-                    try {
-                        val selectedOnu = onuList[selectedOnuIndex]
-                        val result = WiFiCredentialManager.changeWiFiCredentials(
-                            onuExternalId = selectedOnu.uniqueExternalId,
-                            newSSID = ssid,
-                            newPassword = password
-                        )
-
-                        result.onSuccess { message ->
-                            snackbarHostState.showSnackbar(message)
-                            showWiFiDialog = false
-                            android.util.Log.d("RouterScreen", "[v0] WiFi credentials changed successfully")
-                        }.onFailure { error ->
-                            snackbarHostState.showSnackbar("Error: ${error.message}")
-                            android.util.Log.e("RouterScreen", "[v0] WiFi change failed: ${error.message}")
-                        }
-                    } finally {
-                        isChangingWiFi = false
-                    }
-                }
-            },
-            isLoading = isChangingWiFi
-        )
-    }
 }
 
 @Composable

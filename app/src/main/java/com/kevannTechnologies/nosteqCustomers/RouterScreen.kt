@@ -58,6 +58,10 @@ fun RouterScreen(
     var isEnablingDisabling by remember { mutableStateOf(false) }
     var showOnuStatusDialog by remember { mutableStateOf(false) }
     var onuStatusDialogType by remember { mutableStateOf("") } // "enable" or "disable"
+    var showWiFiStatusDialog by remember { mutableStateOf(false) }
+    var showLanStatusDialog by remember { mutableStateOf(false) }
+    var isWiFiEnabled by remember { mutableStateOf(true) }
+    var isLanEnabled by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -583,116 +587,61 @@ fun RouterScreen(
                             }
                         }
 
-                        // ONU Status Toggle Card
+                        // Quick Actions Grid
                         if (onuList.isNotEmpty()) {
-                            val isOnuEnabled = onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "up" ||
-                                    onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "enabled" ||
-                                    onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "1"
+                            val isOnuEnabled = onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "up" || 
+                                               onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "enabled" ||
+                                               onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "1"
+                            
+                            Text(
+                                text = "Quick Actions",
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
 
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (isOnuEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = if (isOnuEnabled)
-                                        Color(0xFF4CAF50).copy(alpha = 0.1f)
-                                    else
-                                        Color(0xFFFF9800).copy(alpha = 0.1f)
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    // Header with status indicator
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = "Device Status",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                            )
-                                            Row(
-                                                modifier = Modifier.padding(top = 4.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(12.dp)
-                                                        .background(
-                                                            color = if (isOnuEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800),
-                                                            shape = RoundedCornerShape(50)
-                                                        )
-                                                )
-                                                Text(
-                                                    text = if (isOnuEnabled) "Online" else "Offline",
-                                                    style = MaterialTheme.typography.headlineSmall,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = if (isOnuEnabled) Color(0xFF4CAF50) else Color(0xFFFF9800)
-                                                )
-                                            }
-                                        }
+                                // Device Enable/Disable Card
+                                QuickActionCard(
+                                    modifier = Modifier.weight(1f),
+                                    title = "Device",
+                                    status = if (isOnuEnabled) "Online" else "Offline",
+                                    isActive = isOnuEnabled,
+                                    icon = Icons.Default.Devices,
+                                    isLoading = isEnablingDisabling,
+                                    onClick = {
+                                        onuStatusDialogType = if (isOnuEnabled) "disable" else "enable"
+                                        showOnuStatusDialog = true
                                     }
+                                )
 
-                                    // Description
-                                    Text(
-                                        text = if (isOnuEnabled)
-                                            "Your device is currently online and active"
-                                        else
-                                            "Your device is currently offline",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                                    )
-
-                                    // Toggle Button
-                                    Button(
-                                        onClick = {
-                                            onuStatusDialogType = if (isOnuEnabled) "disable" else "enable"
-                                            showOnuStatusDialog = true
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        enabled = !isEnablingDisabling,
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (isOnuEnabled)
-                                                Color(0xFF4CAF50)
-                                            else
-                                                Color(0xFF4CAF50)
-                                        )
-                                    ) {
-                                        if (isEnablingDisabling) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                color = Color.White
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                        }
-                                        Icon(
-                                            imageVector = if (isOnuEnabled)
-                                                Icons.Default.PowerSettingsNew
-                                            else
-                                                Icons.Default.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = if (isOnuEnabled) "Turn Off" else "Turn On",
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                // WiFi Control Card
+                                QuickActionCard(
+                                    modifier = Modifier.weight(1f),
+                                    title = "WiFi",
+                                    status = if (isWiFiEnabled) "Enabled" else "Disabled",
+                                    isActive = isWiFiEnabled,
+                                    icon = Icons.Default.Wifi,
+                                    isLoading = false,
+                                    onClick = {
+                                        showWiFiStatusDialog = true
                                     }
-                                }
+                                )
+
+                                // LAN Control Card
+                                QuickActionCard(
+                                    modifier = Modifier.weight(1f),
+                                    title = "LAN",
+                                    status = if (isLanEnabled) "Enabled" else "Disabled",
+                                    isActive = isLanEnabled,
+                                    icon = Icons.Default.Language,
+                                    isLoading = false,
+                                    onClick = {
+                                        showLanStatusDialog = true
+                                    }
+                                )
                             }
                         }
 
@@ -863,6 +812,157 @@ fun RouterScreen(
         )
     }
 
+    // WiFi Status Dialog
+    if (showWiFiStatusDialog) {
+        AlertDialog(
+            onDismissRequest = { showWiFiStatusDialog = false },
+            title = { Text(if (isWiFiEnabled) "Disable WiFi?" else "Enable WiFi?") },
+            text = { 
+                Text(
+                    if (isWiFiEnabled) 
+                        "Disabling WiFi will disconnect all wireless devices from your network."
+                    else 
+                        "Enabling WiFi will allow wireless devices to connect to your network."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isWiFiEnabled = !isWiFiEnabled
+                        showWiFiStatusDialog = false
+                        snackbarHostState.showSnackbar(
+                            message = if (isWiFiEnabled) "WiFi enabled" else "WiFi disabled",
+                            duration = SnackbarDuration.Short
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50)
+                    )
+                ) {
+                    Text(if (isWiFiEnabled) "Disable" else "Enable")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showWiFiStatusDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // LAN Status Dialog
+    if (showLanStatusDialog) {
+        AlertDialog(
+            onDismissRequest = { showLanStatusDialog = false },
+            title = { Text(if (isLanEnabled) "Disable LAN?" else "Enable LAN?") },
+            text = { 
+                Text(
+                    if (isLanEnabled) 
+                        "Disabling LAN will disconnect all wired devices from your network."
+                    else 
+                        "Enabling LAN will allow wired devices to connect to your network."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isLanEnabled = !isLanEnabled
+                        showLanStatusDialog = false
+                        snackbarHostState.showSnackbar(
+                            message = if (isLanEnabled) "LAN enabled" else "LAN disabled",
+                            duration = SnackbarDuration.Short
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50)
+                    )
+                ) {
+                    Text(if (isLanEnabled) "Disable" else "Enable")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showLanStatusDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun QuickActionCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    status: String,
+    isActive: Boolean,
+    icon: androidx.compose.material.icons.Icons,
+    isLoading: Boolean = false,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clickable(enabled = !isLoading) { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isActive) 
+                Color(0xFF4CAF50).copy(alpha = 0.1f) 
+            else 
+                Color(0xFFFF9800).copy(alpha = 0.1f)
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFF9800)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = if (isActive) Color(0xFF4CAF50).copy(alpha = 0.2f) else Color(0xFFFF9800).copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(8.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                    )
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = if (isActive) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+
+            Text(
+                text = status,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                maxLines = 1
+            )
+        }
+    }
     // WiFi Credentials Dialog
     if (showWiFiDialog && onuList.isNotEmpty()) {
         ChangeWiFiCredentialsDialog(

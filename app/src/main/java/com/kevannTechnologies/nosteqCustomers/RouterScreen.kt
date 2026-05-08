@@ -58,7 +58,8 @@ fun RouterScreen(
     var uploadData by remember { mutableStateOf<Long>(0L) }
     var downloadData by remember { mutableStateOf<Long>(0L) }
     var isEnablingDisabling by remember { mutableStateOf(false) }
-    var showOnuStatusDialog by remember { mutableStateOf(false) }
+    var showOnuActionsDialog by remember { mutableStateOf(false) }
+    var showOnuConfirmDialog by remember { mutableStateOf(false) }
     var onuStatusDialogType by remember { mutableStateOf("") } // "enable" or "disable"
     var showWiFiStatusDialog by remember { mutableStateOf(false) }
     var showLanStatusDialog by remember { mutableStateOf(false) }
@@ -630,8 +631,7 @@ fun RouterScreen(
                                     icon = Icons.Default.Devices,
                                     isLoading = isEnablingDisabling,
                                     onClick = {
-                                        onuStatusDialogType = if (isOnuOnline) "disable" else "enable"
-                                        showOnuStatusDialog = true
+                                        showOnuActionsDialog = true
                                     }
                                 )
 
@@ -785,28 +785,96 @@ fun RouterScreen(
         )
     }
 
-    // ONU Enable/Disable Dialog
-    if (showOnuStatusDialog) {
+    // ONU Actions Dialog - Shows Turn On and Turn Off buttons
+    if (showOnuActionsDialog) {
+        val isOnuOnline = onuStatus == "Online"
+        
+        AlertDialog(
+            onDismissRequest = { showOnuActionsDialog = false },
+            title = { Text("Device Control") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (!isOnuOnline) {
+                                    onuStatusDialogType = "enable"
+                                    showOnuActionsDialog = false
+                                    showOnuConfirmDialog = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isOnuOnline,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4CAF50),
+                                disabledContainerColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Turn On")
+                        }
+                        
+                        Button(
+                            onClick = {
+                                if (isOnuOnline) {
+                                    onuStatusDialogType = "disable"
+                                    showOnuActionsDialog = false
+                                    showOnuConfirmDialog = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = isOnuOnline,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFB71C1C),
+                                disabledContainerColor = Color(0xFFB71C1C).copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Turn Off")
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                OutlinedButton(onClick = { showOnuActionsDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    // ONU Confirmation Dialog
+    if (showOnuConfirmDialog) {
         val isEnable = onuStatusDialogType == "enable"
         val titleText = if (isEnable) "Turn On Device?" else "Turn Off Device?"
         val messageText = if (isEnable)
             "Turning on your device will bring it online and restore service."
         else
-            "Turning off your device will take it offline and stop service. You can turn it back on anytime."
+            "Turning off your device will take it offline and stop service."
         val buttonText = if (isEnable) "Turn On" else "Turn Off"
 
         AlertDialog(
-            onDismissRequest = { showOnuStatusDialog = false },
+            onDismissRequest = { showOnuConfirmDialog = false },
             title = { Text(titleText) },
             text = { Text(messageText) },
             confirmButton = {
                 Button(
                     onClick = {
                         if (isEnable) enableOnu() else disableOnu()
+                        showOnuConfirmDialog = false
                     },
                     enabled = !isEnablingDisabling,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
+                        containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFB71C1C)
                     )
                 ) {
                     if (isEnablingDisabling) {
@@ -821,7 +889,7 @@ fun RouterScreen(
             },
             dismissButton = {
                 OutlinedButton(
-                    onClick = { showOnuStatusDialog = false },
+                    onClick = { showOnuConfirmDialog = false },
                     enabled = !isEnablingDisabling
                 ) {
                     Text("Cancel")

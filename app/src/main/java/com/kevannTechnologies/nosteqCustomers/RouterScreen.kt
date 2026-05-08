@@ -256,6 +256,18 @@ fun RouterScreen(
         }
     }
 
+    fun refetchOnuList() {
+        scope.launch {
+            val result = onuRepository.fetchAllOnusByUsername(username)
+            result.onSuccess { onus ->
+                onuList = onus
+                AppLogger.logInfo("RouterScreen: ONU list refetched successfully")
+            }.onFailure { exception ->
+                AppLogger.logError("RouterScreen: Refetch failed", exception)
+            }
+        }
+    }
+
     fun enableOnu() {
         if (onuList.isEmpty()) return
 
@@ -273,8 +285,6 @@ fun RouterScreen(
                     apiKey = SmartOltConfig.API_KEY
                 )
 
-                isEnablingDisabling = false
-
                 AppLogger.logApiCall(
                     endpoint = "enableOnu",
                     success = response.isSuccessful && response.body()?.status == true,
@@ -287,7 +297,10 @@ fun RouterScreen(
                         duration = SnackbarDuration.Short
                     )
                     showOnuStatusDialog = false
+                    // Refetch the ONU list to update the status
+                    refetchOnuList()
                 } else {
+                    isEnablingDisabling = false
                     snackbarHostState.showSnackbar(
                         message = "Unable to enable ONU. Please try again",
                         duration = SnackbarDuration.Short
@@ -321,8 +334,6 @@ fun RouterScreen(
                     apiKey = SmartOltConfig.API_KEY
                 )
 
-                isEnablingDisabling = false
-
                 AppLogger.logApiCall(
                     endpoint = "disableOnu",
                     success = response.isSuccessful && response.body()?.status == true,
@@ -335,7 +346,10 @@ fun RouterScreen(
                         duration = SnackbarDuration.Short
                     )
                     showOnuStatusDialog = false
+                    // Refetch the ONU list to update the status
+                    refetchOnuList()
                 } else {
+                    isEnablingDisabling = false
                     snackbarHostState.showSnackbar(
                         message = "Unable to disable ONU. Please try again",
                         duration = SnackbarDuration.Short

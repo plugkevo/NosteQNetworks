@@ -261,10 +261,11 @@ fun RouterScreen(
             val result = onuRepository.fetchAllOnusByUsername(username)
             result.onSuccess { onus ->
                 onuList = onus
-                AppLogger.logInfo("RouterScreen: ONU list refetched successfully")
+                AppLogger.logInfo("RouterScreen: ONU list refetched. New status: ${if (onuList.isNotEmpty()) onuList[selectedOnuIndex].administrativeStatus else "N/A"}")
             }.onFailure { exception ->
                 AppLogger.logError("RouterScreen: Refetch failed", exception)
             }
+            isEnablingDisabling = false
         }
     }
 
@@ -297,7 +298,8 @@ fun RouterScreen(
                         duration = SnackbarDuration.Short
                     )
                     showOnuStatusDialog = false
-                    // Refetch the ONU list to update the status
+                    // Wait a moment for the backend to process the change, then refetch
+                    kotlinx.coroutines.delay(500)
                     refetchOnuList()
                 } else {
                     isEnablingDisabling = false
@@ -346,7 +348,8 @@ fun RouterScreen(
                         duration = SnackbarDuration.Short
                     )
                     showOnuStatusDialog = false
-                    // Refetch the ONU list to update the status
+                    // Wait a moment for the backend to process the change, then refetch
+                    kotlinx.coroutines.delay(500)
                     refetchOnuList()
                 } else {
                     isEnablingDisabling = false

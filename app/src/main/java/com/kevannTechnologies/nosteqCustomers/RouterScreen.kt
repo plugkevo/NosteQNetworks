@@ -264,10 +264,11 @@ fun RouterScreen(
             result.onSuccess { onus ->
                 onuList = onus
                 AppLogger.logInfo("RouterScreen: ONU list refetched. New status: ${if (onuList.isNotEmpty()) onuList[selectedOnuIndex].administrativeStatus else "N/A"}")
+                isEnablingDisabling = false
             }.onFailure { exception ->
                 AppLogger.logError("RouterScreen: Refetch failed", exception)
+                isEnablingDisabling = false
             }
-            isEnablingDisabling = false
         }
     }
 

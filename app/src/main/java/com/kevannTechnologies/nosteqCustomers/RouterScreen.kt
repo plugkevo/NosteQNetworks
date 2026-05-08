@@ -1,7 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -24,10 +24,12 @@ import coil.request.ImageRequest
 import com.nosteq.provider.utils.PreferencesManager
 import com.kevannTechnologies.nosteqCustomers.models.OnuDetails
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import com.kevannTechnologies.nosteqCustomers.repository.OnuRepository
 import com.kevannTechnologies.nosteqCustomers.repository.OnuStatusRepository
 import kotlinx.coroutines.launch
+
 
 
 
@@ -606,10 +608,10 @@ fun RouterScreen(
 
                         // Quick Actions Grid
                         if (onuList.isNotEmpty()) {
-                            val isOnuEnabled = onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "up" || 
-                                               onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "enabled" ||
-                                               onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "1"
-                            
+                            val isOnuEnabled = onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "up" ||
+                                    onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "enabled" ||
+                                    onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "1"
+
                             Text(
                                 text = "Quick Actions",
                                 style = MaterialTheme.typography.labelLarge,
@@ -834,23 +836,27 @@ fun RouterScreen(
         AlertDialog(
             onDismissRequest = { showWiFiStatusDialog = false },
             title = { Text(if (isWiFiEnabled) "Disable WiFi?" else "Enable WiFi?") },
-            text = { 
+            text = {
                 Text(
-                    if (isWiFiEnabled) 
+                    if (isWiFiEnabled)
                         "Disabling WiFi will disconnect all wireless devices from your network."
-                    else 
+                    else
                         "Enabling WiFi will allow wireless devices to connect to your network."
                 )
             },
+            // Find this block in your code
             confirmButton = {
                 Button(
                     onClick = {
                         isWiFiEnabled = !isWiFiEnabled
                         showWiFiStatusDialog = false
-                        snackbarHostState.showSnackbar(
-                            message = if (isWiFiEnabled) "WiFi enabled" else "WiFi disabled",
-                            duration = SnackbarDuration.Short
-                        )
+                        // FIX: Wrap in scope.launch
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = if (isWiFiEnabled) "WiFi enabled" else "WiFi disabled",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF4CAF50)
@@ -872,11 +878,11 @@ fun RouterScreen(
         AlertDialog(
             onDismissRequest = { showLanStatusDialog = false },
             title = { Text(if (isLanEnabled) "Disable LAN?" else "Enable LAN?") },
-            text = { 
+            text = {
                 Text(
-                    if (isLanEnabled) 
+                    if (isLanEnabled)
                         "Disabling LAN will disconnect all wired devices from your network."
-                    else 
+                    else
                         "Enabling LAN will allow wired devices to connect to your network."
                 )
             },
@@ -885,10 +891,13 @@ fun RouterScreen(
                     onClick = {
                         isLanEnabled = !isLanEnabled
                         showLanStatusDialog = false
-                        snackbarHostState.showSnackbar(
-                            message = if (isLanEnabled) "LAN enabled" else "LAN disabled",
-                            duration = SnackbarDuration.Short
-                        )
+                        // FIX: Wrap in scope.launch
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = if (isLanEnabled) "LAN enabled" else "LAN disabled",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF4CAF50)
@@ -912,7 +921,7 @@ fun QuickActionCard(
     title: String,
     status: String,
     isActive: Boolean,
-    icon: androidx.compose.material.icons.Icons,
+    icon: ImageVector,
     isLoading: Boolean = false,
     onClick: () -> Unit
 ) {
@@ -921,9 +930,9 @@ fun QuickActionCard(
             .clickable(enabled = !isLoading) { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isActive) 
-                Color(0xFF4CAF50).copy(alpha = 0.1f) 
-            else 
+            containerColor = if (isActive)
+                Color(0xFF4CAF50).copy(alpha = 0.1f)
+            else
                 Color(0xFFFF9800).copy(alpha = 0.1f)
         ),
         border = BorderStroke(

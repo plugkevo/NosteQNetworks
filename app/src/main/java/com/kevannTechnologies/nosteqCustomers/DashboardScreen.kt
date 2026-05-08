@@ -189,6 +189,39 @@ fun DashboardScreen(navController: NavController) {
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Validity Progress Bar
+                val (progressValue, daysLeft) = calculateValidityProgress(data?.startDate, data?.expiryDate, data?.currentRecharge?.validity)
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Package Validity", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "$daysLeft days left",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (daysLeft <= 3) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    LinearProgressIndicator(
+                        progress = { progressValue },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp),
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        color = if (daysLeft <= 3) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
 
@@ -385,4 +418,38 @@ private fun formatValidity(validitySeconds: Long?): String {
     if (validitySeconds == null || validitySeconds <= 0) return "N/A"
     val days = validitySeconds / 86400
     return "$days days"
+}
+
+private fun calculateValidityProgress(startDate: String?, expiryDate: String?, validitySeconds: Long?): Pair<Float, Long> {
+    if (startDate == null || expiryDate == null || validitySeconds == null || validitySeconds <= 0) {
+        return Pair(0f, 0L)
+    }
+
+    return try {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+        val start = dateFormat.parse(startDate) ?: return Pair(0f, 0L)
+        val expiry = dateFormat.parse(expiryDate) ?: return Pair(0f, 0L)
+        val now = Date()
+
+        // Calculate total days
+        val totalDays = validitySeconds / 86400
+
+        // Calculate days elapsed
+        val elapsedMillis = now.time - start.time
+        val elapsedDays = elapsedMillis / (1000 * 60 * 60 * 24)
+
+        // Calculate days left
+        val daysLeft = totalDays - elapsedDays
+
+        // Calculate progress (0f to 1f)
+        val progress = if (totalDays > 0) {
+            (elapsedDays.toFloat() / totalDays.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+
+        Pair(progress, maxOf(0L, daysLeft))
+    } catch (e: Exception) {
+        Pair(0f, 0L)
+    }
 }

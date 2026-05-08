@@ -1,6 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
 import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +27,7 @@ import com.nosteq.provider.utils.PreferencesManager
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import kotlin.jvm.java
 
 @Composable
 fun AccountScreen() {
@@ -45,6 +47,7 @@ fun AccountScreen() {
     var isChangingPassword by remember { mutableStateOf(false) }
     var passwordChangeMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeError by remember { mutableStateOf<String?>(null) }
+    var isChangePasswordExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val token = preferencesManager.getToken()
@@ -251,107 +254,158 @@ fun AccountScreen() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "Change Password (Account PSWD)",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        OutlinedTextField(
-                            value = currentPassword,
-                            onValueChange = {
-                                currentPassword = it
-                                passwordChangeError = null
-                            },
-                            label = { Text("Current Password") },
-                            visualTransformation = if (currentPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            trailingIcon = {
-                                IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
-                                    Icon(
-                                        imageVector = if (currentPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                        contentDescription = if (currentPasswordVisible) "Hide password" else "Show password"
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isChangingPassword
-                        )
-
-                        OutlinedTextField(
-                            value = newPassword,
-                            onValueChange = {
-                                newPassword = it
-                                passwordChangeError = null
-                            },
-                            label = { Text("New Password") },
-                            visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            trailingIcon = {
-                                IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
-                                    Icon(
-                                        imageVector = if (newPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                        contentDescription = if (newPasswordVisible) "Hide password" else "Show password"
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isChangingPassword
-                        )
-
-                        OutlinedTextField(
-                            value = confirmPassword,
-                            onValueChange = {
-                                confirmPassword = it
-                                passwordChangeError = null
-                            },
-                            label = { Text("Confirm New Password") },
-                            visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            trailingIcon = {
-                                IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
-                                    Icon(
-                                        imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                        contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password"
-                                    )
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isChangingPassword
-                        )
-
-                        if (passwordChangeError != null) {
-                            Text(
-                                text = passwordChangeError ?: "",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        if (passwordChangeMessage != null) {
-                            Text(
-                                text = passwordChangeMessage ?: "",
-                                color = MaterialTheme.colorScheme.primary,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-
-                        Button(
-                            onClick = { changePassword() },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !isChangingPassword
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isChangePasswordExpanded = !isChangePasswordExpanded },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            if (isChangingPassword) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = MaterialTheme.colorScheme.onPrimary
+                            Text(
+                                text = "Change Account Password",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Icon(
+                                imageVector = if (isChangePasswordExpanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                contentDescription = if (isChangePasswordExpanded) "Hide" else "Show"
+                            )
+                        }
+
+                        if (isChangePasswordExpanded) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Warning card to prevent confusion with router password
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Info,
+                                            contentDescription = "Info",
+                                            modifier = Modifier.size(20.dp),
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Text(
+                                            text = "This is your account password for logging in to your account. This is NOT your router WiFi password.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+
+                                OutlinedTextField(
+                                    value = currentPassword,
+                                    onValueChange = {
+                                        currentPassword = it
+                                        passwordChangeError = null
+                                    },
+                                    label = { Text("Current Password") },
+                                    visualTransformation = if (currentPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    trailingIcon = {
+                                        IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
+                                            Icon(
+                                                imageVector = if (currentPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                                contentDescription = if (currentPasswordVisible) "Hide password" else "Show password"
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isChangingPassword
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+
+                                OutlinedTextField(
+                                    value = newPassword,
+                                    onValueChange = {
+                                        newPassword = it
+                                        passwordChangeError = null
+                                    },
+                                    label = { Text("New Password") },
+                                    visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    trailingIcon = {
+                                        IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
+                                            Icon(
+                                                imageVector = if (newPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                                contentDescription = if (newPasswordVisible) "Hide password" else "Show password"
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isChangingPassword
+                                )
+
+                                OutlinedTextField(
+                                    value = confirmPassword,
+                                    onValueChange = {
+                                        confirmPassword = it
+                                        passwordChangeError = null
+                                    },
+                                    label = { Text("Confirm New Password") },
+                                    visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    trailingIcon = {
+                                        IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                                            Icon(
+                                                imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                                contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password"
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isChangingPassword
+                                )
+
+                                if (passwordChangeError != null) {
+                                    Text(
+                                        text = passwordChangeError ?: "",
+                                        color = MaterialTheme.colorScheme.error,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+
+                                if (passwordChangeMessage != null) {
+                                    Text(
+                                        text = passwordChangeMessage ?: "",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+
+                                Button(
+                                    onClick = { changePassword() },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isChangingPassword
+                                ) {
+                                    if (isChangingPassword) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(20.dp),
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                    Text("Change Password")
+                                }
                             }
-                            Text("Change Password")
                         }
                     }
                 }

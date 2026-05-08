@@ -1,5 +1,6 @@
 package com.kevannTechnologies.nosteqCustomers
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -23,10 +24,12 @@ import coil.request.ImageRequest
 import com.nosteq.provider.utils.PreferencesManager
 import com.kevannTechnologies.nosteqCustomers.models.OnuDetails
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import com.kevannTechnologies.nosteqCustomers.repository.OnuRepository
 import com.kevannTechnologies.nosteqCustomers.repository.OnuStatusRepository
 import kotlinx.coroutines.launch
+
 
 
 
@@ -54,6 +57,14 @@ fun RouterScreen(
     var graphImageUri by remember { mutableStateOf<String?>(null) }
     var uploadData by remember { mutableStateOf<Long>(0L) }
     var downloadData by remember { mutableStateOf<Long>(0L) }
+    var isEnablingDisabling by remember { mutableStateOf(false) }
+    var showOnuActionsDialog by remember { mutableStateOf(false) }
+    var showOnuConfirmDialog by remember { mutableStateOf(false) }
+    var onuStatusDialogType by remember { mutableStateOf("") } // "enable" or "disable"
+    var showWiFiStatusDialog by remember { mutableStateOf(false) }
+    var showLanStatusDialog by remember { mutableStateOf(false) }
+    var isWiFiEnabled by remember { mutableStateOf(true) }
+    var isLanEnabled by remember { mutableStateOf(true) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -240,6 +251,118 @@ fun RouterScreen(
                 }
             } catch (e: Exception) {
                 AppLogger.logError("RouterScreen: Reboot failed", e)
+                snackbarHostState.showSnackbar(
+                    message = "Network error. Please check your connection",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
+
+    fun refetchOnuList() {
+        scope.launch {
+            val result = onuRepository.fetchAllOnusByUsername(username)
+            result.onSuccess { onus ->
+                onuList = onus
+                AppLogger.logInfo("RouterScreen: ONU list refetched. New status: ${if (onuList.isNotEmpty()) onuList[selectedOnuIndex].administrativeStatus else "N/A"}")
+                isEnablingDisabling = false
+            }.onFailure { exception ->
+                AppLogger.logError("RouterScreen: Refetch failed", exception)
+                isEnablingDisabling = false
+            }
+        }
+    }
+
+    fun enableOnu() {
+        if (onuList.isEmpty()) return
+
+        scope.launch {
+            try {
+                val selectedOnu = onuList[selectedOnuIndex]
+                isEnablingDisabling = true
+
+                AppLogger.logInfo("RouterScreen: Enabling ONU",
+                    mapOf("onuExternalId" to selectedOnu.uniqueExternalId) as Map<String, String>
+                )
+
+                val response = SmartOltClient.apiService.enableOnu(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                AppLogger.logApiCall(
+                    endpoint = "enableOnu",
+                    success = response.isSuccessful && response.body()?.status == true,
+                    responseCode = response.code()
+                )
+
+                if (response.isSuccessful && response.body()?.status == true) {
+                    snackbarHostState.showSnackbar(
+                        message = "ONU enabled successfully",
+                        duration = SnackbarDuration.Short
+                    )
+                    // Wait a moment for the backend to process the change, then refetch
+                    kotlinx.coroutines.delay(1000)
+                    refetchOnuList()
+                } else {
+                    isEnablingDisabling = false
+                    snackbarHostState.showSnackbar(
+                        message = "Unable to enable ONU. Please try again",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            } catch (e: Exception) {
+                isEnablingDisabling = false
+                AppLogger.logError("RouterScreen: Enable ONU failed", e)
+                snackbarHostState.showSnackbar(
+                    message = "Network error. Please check your connection",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
+
+    fun disableOnu() {
+        if (onuList.isEmpty()) return
+
+        scope.launch {
+            try {
+                val selectedOnu = onuList[selectedOnuIndex]
+                isEnablingDisabling = true
+
+                AppLogger.logInfo("RouterScreen: Disabling ONU",
+                    mapOf("onuExternalId" to selectedOnu.uniqueExternalId) as Map<String, String>
+                )
+
+                val response = SmartOltClient.apiService.disableOnu(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                AppLogger.logApiCall(
+                    endpoint = "disableOnu",
+                    success = response.isSuccessful && response.body()?.status == true,
+                    responseCode = response.code()
+                )
+
+                if (response.isSuccessful && response.body()?.status == true) {
+                    snackbarHostState.showSnackbar(
+                        message = "ONU disabled successfully",
+                        duration = SnackbarDuration.Short
+                    )
+                    // Wait a moment for the backend to process the change, then refetch
+                    kotlinx.coroutines.delay(1000)
+                    refetchOnuList()
+                } else {
+                    isEnablingDisabling = false
+                    snackbarHostState.showSnackbar(
+                        message = "Unable to disable ONU. Please try again",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            } catch (e: Exception) {
+                isEnablingDisabling = false
+                AppLogger.logError("RouterScreen: Disable ONU failed", e)
                 snackbarHostState.showSnackbar(
                     message = "Network error. Please check your connection",
                     duration = SnackbarDuration.Short
@@ -483,6 +606,61 @@ fun RouterScreen(
                             }
                         }
 
+                        // Quick Actions Grid
+                        if (onuList.isNotEmpty()) {
+                            val isOnuOnline = onuStatus == "Online"
+
+                            Text(
+                                text = "Quick Actions",
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Device Enable/Disable Card
+                                QuickActionCard(
+                                    modifier = Modifier.weight(1f),
+                                    title = "Device",
+                                    status = onuStatus ?: "Unknown",
+                                    isActive = isOnuOnline,
+                                    icon = Icons.Default.Devices,
+                                    isLoading = isEnablingDisabling,
+                                    onClick = {
+                                        showOnuActionsDialog = true
+                                    }
+                                )
+
+                                // WiFi Control Card
+                                QuickActionCard(
+                                    modifier = Modifier.weight(1f),
+                                    title = "WiFi",
+                                    status = if (isWiFiEnabled) "Enabled" else "Disabled",
+                                    isActive = isWiFiEnabled,
+                                    icon = Icons.Default.Wifi,
+                                    isLoading = false,
+                                    onClick = {
+                                        showWiFiStatusDialog = true
+                                    }
+                                )
+
+                                // LAN Control Card
+                                QuickActionCard(
+                                    modifier = Modifier.weight(1f),
+                                    title = "LAN",
+                                    status = if (isLanEnabled) "Enabled" else "Disabled",
+                                    isActive = isLanEnabled,
+                                    icon = Icons.Default.Language,
+                                    isLoading = false,
+                                    onClick = {
+                                        showLanStatusDialog = true
+                                    }
+                                )
+                            }
+                        }
+
                         // Reboot Device Button
                         Button(
                             onClick = { showRebootDialog = true },
@@ -605,37 +783,276 @@ fun RouterScreen(
         )
     }
 
-    // WiFi Credentials Dialog
-    if (showWiFiDialog && onuList.isNotEmpty()) {
-        ChangeWiFiCredentialsDialog(
-            onuName = onuList[selectedOnuIndex].name ?: "Device",
-            onDismiss = { showWiFiDialog = false },
-            onConfirm = { ssid, password ->
-                isChangingWiFi = true
-                scope.launch {
-                    try {
-                        val selectedOnu = onuList[selectedOnuIndex]
-                        val result = WiFiCredentialManager.changeWiFiCredentials(
-                            onuExternalId = selectedOnu.uniqueExternalId,
-                            newSSID = ssid,
-                            newPassword = password
-                        )
+    // ONU Actions Dialog - Shows Turn On and Turn Off buttons
+    if (showOnuActionsDialog) {
+        val isOnuOnline = onuStatus == "Online"
 
-                        result.onSuccess { message ->
-                            snackbarHostState.showSnackbar(message)
-                            showWiFiDialog = false
-                            android.util.Log.d("RouterScreen", "[v0] WiFi credentials changed successfully")
-                        }.onFailure { error ->
-                            snackbarHostState.showSnackbar("Error: ${error.message}")
-                            android.util.Log.e("RouterScreen", "[v0] WiFi change failed: ${error.message}")
+        AlertDialog(
+            onDismissRequest = { showOnuActionsDialog = false },
+            title = { Text("Device Control") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (!isOnuOnline) {
+                                    onuStatusDialogType = "enable"
+                                    showOnuActionsDialog = false
+                                    showOnuConfirmDialog = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = !isOnuOnline,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4CAF50),
+                                disabledContainerColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Turn On")
                         }
-                    } finally {
-                        isChangingWiFi = false
+
+                        Button(
+                            onClick = {
+                                if (isOnuOnline) {
+                                    onuStatusDialogType = "disable"
+                                    showOnuActionsDialog = false
+                                    showOnuConfirmDialog = true
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = isOnuOnline,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFB71C1C),
+                                disabledContainerColor = Color(0xFFB71C1C).copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Turn Off")
+                        }
                     }
                 }
             },
-            isLoading = isChangingWiFi
+            confirmButton = {},
+            dismissButton = {
+                OutlinedButton(onClick = { showOnuActionsDialog = false }) {
+                    Text("Close")
+                }
+            }
         )
+    }
+
+    // ONU Confirmation Dialog
+    if (showOnuConfirmDialog) {
+        val isEnable = onuStatusDialogType == "enable"
+        val titleText = if (isEnable) "Turn On Device?" else "Turn Off Device?"
+        val messageText = if (isEnable)
+            "Turning on your device will bring it online and restore service."
+        else
+            "Turning off your device will take it offline and stop service."
+        val buttonText = if (isEnable) "Turn On" else "Turn Off"
+
+        AlertDialog(
+            onDismissRequest = { showOnuConfirmDialog = false },
+            title = { Text(titleText) },
+            text = { Text(messageText) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (isEnable) enableOnu() else disableOnu()
+                        showOnuConfirmDialog = false
+                    },
+                    enabled = !isEnablingDisabling,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFB71C1C)
+                    )
+                ) {
+                    if (isEnablingDisabling) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(buttonText)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showOnuConfirmDialog = false },
+                    enabled = !isEnablingDisabling
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // WiFi Status Dialog
+    if (showWiFiStatusDialog) {
+        AlertDialog(
+            onDismissRequest = { showWiFiStatusDialog = false },
+            title = { Text(if (isWiFiEnabled) "Disable WiFi?" else "Enable WiFi?") },
+            text = {
+                Text(
+                    if (isWiFiEnabled)
+                        "Disabling WiFi will disconnect all wireless devices from your network."
+                    else
+                        "Enabling WiFi will allow wireless devices to connect to your network."
+                )
+            },
+            // Find this block in your code
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isWiFiEnabled = !isWiFiEnabled
+                        showWiFiStatusDialog = false
+                        // FIX: Wrap in scope.launch
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = if (isWiFiEnabled) "WiFi enabled" else "WiFi disabled",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50)
+                    )
+                ) {
+                    Text(if (isWiFiEnabled) "Disable" else "Enable")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showWiFiStatusDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // LAN Status Dialog
+    if (showLanStatusDialog) {
+        AlertDialog(
+            onDismissRequest = { showLanStatusDialog = false },
+            title = { Text(if (isLanEnabled) "Disable LAN?" else "Enable LAN?") },
+            text = {
+                Text(
+                    if (isLanEnabled)
+                        "Disabling LAN will disconnect all wired devices from your network."
+                    else
+                        "Enabling LAN will allow wired devices to connect to your network."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isLanEnabled = !isLanEnabled
+                        showLanStatusDialog = false
+                        // FIX: Wrap in scope.launch
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = if (isLanEnabled) "LAN enabled" else "LAN disabled",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50)
+                    )
+                ) {
+                    Text(if (isLanEnabled) "Disable" else "Enable")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { showLanStatusDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun QuickActionCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    status: String,
+    isActive: Boolean,
+    icon: ImageVector,
+    isLoading: Boolean = false,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clickable(enabled = !isLoading) { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isActive)
+                Color(0xFF4CAF50).copy(alpha = 0.1f)
+            else
+                Color(0xFFFF9800).copy(alpha = 0.1f)
+        ),
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFF9800)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = if (isActive) Color(0xFF4CAF50).copy(alpha = 0.2f) else Color(0xFFFF9800).copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(8.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = if (isActive) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                    )
+                } else {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp),
+                        tint = if (isActive) Color(0xFF4CAF50) else Color(0xFFFF9800)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+
+            Text(
+                text = status,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                maxLines = 1
+            )
+        }
     }
 }
 

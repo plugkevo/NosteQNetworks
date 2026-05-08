@@ -74,7 +74,7 @@ fun SupportScreen() {
                     value = "020 500 6090",
                     onClick = {
                         val intent = Intent(Intent.ACTION_DIAL).apply {
-                            data = Uri.parse("tel:+254743101738")
+                            data = Uri.parse("tel:0205006090")
                         }
                         context.startActivity(intent)
                     }

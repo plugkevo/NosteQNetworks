@@ -1,5 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
+import android.content.Intent
+import android.net.Uri
 import android.text.Html
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -590,11 +592,93 @@ fun PackagesScreenContent(
                             )
                         }
                     }
+
+                    // Custom Package Inquiry Card
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CustomPackageCard(isDarkMode = isDarkMode)
                 }
             }
         }
     }
 }
+
+@Composable
+fun CustomPackageCard(isDarkMode: Boolean = false) {
+    val context = LocalContext.current
+    val primaryColor = Color(0xFF00BCD4)
+    val accentColor = Color(0xFF00ACC1)
+
+    val surfaceColor = if (isDarkMode) Color(0xFF1A1A1A) else Color(0xFFF0F9FA)
+    val textColor = if (isDarkMode) Color.White else Color.Black
+    val subtextColor = if (isDarkMode) Color(0xFFB0B0B0) else Color(0xFF666666)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                width = 2.dp,
+                color = primaryColor,
+                shape = RoundedCornerShape(16.dp)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = surfaceColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Header
+            Text(
+                text = "Need a Custom Package?",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = textColor,
+                textAlign = TextAlign.Center
+            )
+
+            // Description
+            Text(
+                text = "Get in touch with our team to create a package tailored to your needs",
+                style = MaterialTheme.typography.bodyMedium,
+                color = subtextColor,
+                textAlign = TextAlign.Center
+            )
+
+            // Call Button
+            Button(
+                onClick = {
+                    try {
+                        val callIntent = Intent(Intent.ACTION_DIAL).apply {
+                            data = Uri.parse("tel:0205006090")
+                        }
+                        context.startActivity(callIntent)
+                    } catch (e: Exception) {
+                        // Handle error if needed
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = primaryColor,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "Call 0205006090",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun PackageCard(
     plan: Plan,

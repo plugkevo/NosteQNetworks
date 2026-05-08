@@ -609,9 +609,7 @@ fun RouterScreen(
 
                         // Quick Actions Grid
                         if (onuList.isNotEmpty()) {
-                            val isOnuEnabled = onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "up" ||
-                                    onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "enabled" ||
-                                    onuList[selectedOnuIndex].administrativeStatus?.lowercase() == "1"
+                            val isOnuOnline = onuStatus == "Online"
 
                             Text(
                                 text = "Quick Actions",
@@ -627,12 +625,12 @@ fun RouterScreen(
                                 QuickActionCard(
                                     modifier = Modifier.weight(1f),
                                     title = "Device",
-                                    status = if (isOnuEnabled) "Online" else "Offline",
-                                    isActive = isOnuEnabled,
+                                    status = onuStatus ?: "Unknown",
+                                    isActive = isOnuOnline,
                                     icon = Icons.Default.Devices,
                                     isLoading = isEnablingDisabling,
                                     onClick = {
-                                        onuStatusDialogType = if (isOnuEnabled) "disable" else "enable"
+                                        onuStatusDialogType = if (isOnuOnline) "disable" else "enable"
                                         showOnuStatusDialog = true
                                     }
                                 )

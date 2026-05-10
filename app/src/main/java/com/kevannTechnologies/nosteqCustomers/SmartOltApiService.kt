@@ -1,6 +1,7 @@
 package com.kevannTechnologies.nosteqCustomers
 
 
+import com.kevannTechnologies.nosteqCustomers.models.AdministrativeStatusResponse
 import com.kevannTechnologies.nosteqCustomers.models.AllOnusDetailsResponse
 import com.kevannTechnologies.nosteqCustomers.models.OltListResponse
 import com.kevannTechnologies.nosteqCustomers.models.OnuDetailsResponse
@@ -49,7 +50,7 @@ interface SmartOltApiService {
     suspend fun getOnuAdministrativeStatus(
         @Path("onu_external_id") onuExternalId: String,
         @Header("X-Token") apiKey: String
-    ): Response<RebootResponse>
+    ): Response<AdministrativeStatusResponse>
 
     @GET("onu/get_onus_statuses")
     suspend fun getOnuStatuses(

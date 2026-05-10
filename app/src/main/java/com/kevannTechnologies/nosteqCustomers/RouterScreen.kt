@@ -1051,10 +1051,12 @@ fun RouterScreen(
                     onClick = {
                         // TODO: Implement WiFi enable/disable API call
                         showWiFiConfirmDialog = false
-                        snackbarHostState.showSnackbar(
-                            message = "WiFi $buttonText command sent",
-                            duration = SnackbarDuration.Short
-                        )
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = "WiFi $buttonText command sent",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFB71C1C)
@@ -1157,10 +1159,12 @@ fun RouterScreen(
                     onClick = {
                         // TODO: Implement LAN enable/disable API call
                         showLanConfirmDialog = false
-                        snackbarHostState.showSnackbar(
-                            message = "LAN $buttonText command sent",
-                            duration = SnackbarDuration.Short
-                        )
+                        scope.launch {
+                            snackbarHostState.showSnackbar(
+                                message = "LAN $buttonText command sent",
+                                duration = SnackbarDuration.Short
+                            )
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFB71C1C)
@@ -1171,62 +1175,6 @@ fun RouterScreen(
             },
             dismissButton = {
                 OutlinedButton(onClick = { showLanConfirmDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
-                    )
-                ) {
-                    Text(if (isWiFiEnabled) "Disable" else "Enable")
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showWiFiStatusDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // LAN Status Dialog
-    if (showLanStatusDialog) {
-        AlertDialog(
-            onDismissRequest = { showLanStatusDialog = false },
-            title = { Text(if (isLanEnabled) "Disable LAN?" else "Enable LAN?") },
-            text = {
-                Text(
-                    if (isLanEnabled)
-                        "Disabling LAN will disconnect all wired devices from your network."
-                    else
-                        "Enabling LAN will allow wired devices to connect to your network."
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        isLanEnabled = !isLanEnabled
-                        showLanStatusDialog = false
-                        // FIX: Wrap in scope.launch
-                        scope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = if (isLanEnabled) "LAN enabled" else "LAN disabled",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
-                    )
-                ) {
-                    Text(if (isLanEnabled) "Disable" else "Enable")
-                }
-            },
-            dismissButton = {
-                OutlinedButton(onClick = { showLanStatusDialog = false }) {
                     Text("Cancel")
                 }
             }

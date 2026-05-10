@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +26,8 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.text.SimpleDateFormat
 import java.util.*
+import android.content.Intent
+import android.net.Uri
 
 
 
@@ -99,249 +102,281 @@ fun DashboardScreen(navController: NavController) {
 
     val data = dashboardData?.data
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "Dashboard",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    val phoneNumber = "254743101738" // +254 for Kenya
+                    val username = prefsManager.getUsername() ?: "User"
+                    val message = "Hi, I'm $username and I need help with my Nosteq account"
+                    val whatsappUrl = "https://wa.me/$phoneNumber?text=${Uri.encode(message)}"
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsappUrl))
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        // Fallback if WhatsApp is not installed
+                        val fallbackUrl = "https://web.whatsapp.com/send?phone=$phoneNumber&text=${Uri.encode(message)}"
+                        val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl))
+                        context.startActivity(fallbackIntent)
+                    }
+                },
+                containerColor = Color(0xFF25D366), // WhatsApp green
+                contentColor = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier.size(56.dp)
             ) {
-                Text(
-                    text = "Account Status",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                Icon(
+                    imageVector = Icons.Default.Chat,
+                    contentDescription = "WhatsApp Support"
                 )
-                Text(
-                    text = when {
-                        isSubscriptionExpired(data?.expiryDate) -> "Expired"
-                        else -> when (data?.status) {
-                            0 -> "Active"
-                            1 -> "Inactive"
-                            2 -> "Suspended"
-                            else -> "Unknown"
-                        }
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = if (isSubscriptionExpired(data?.expiryDate)) MaterialTheme.colorScheme.error
-                    else if (data?.status == 0) MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.error
-                )
-                Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("Current Package", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            data?.planName ?: "N/A",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Validity", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            formatValidity(data?.currentRecharge?.validity),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text("Start Date", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            formatDate(data?.startDate),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("Expires On", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            formatDate(data?.expiryDate),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Validity Progress Bar
-                val (progressValue, daysLeft) = calculateValidityProgress(data?.startDate, data?.expiryDate, data?.currentRecharge?.validity)
-
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Package Validity", style = MaterialTheme.typography.bodySmall)
-                        Text(
-                            "$daysLeft days left",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (daysLeft <= 3) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    LinearProgressIndicator(
-                        progress = { progressValue },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp),
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                        color = if (daysLeft <= 3) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-                    )
-                }
             }
         }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "Dashboard",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
 
-        // Used Data Card
-        if (data?.usedData != null) {
             Card(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Data Usage",
+                        text = "Account Status",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+                    Text(
+                        text = when {
+                            isSubscriptionExpired(data?.expiryDate) -> "Expired"
+                            else -> when (data?.status) {
+                                0 -> "Active"
+                                1 -> "Inactive"
+                                2 -> "Suspended"
+                                else -> "Unknown"
+                            }
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (isSubscriptionExpired(data?.expiryDate)) MaterialTheme.colorScheme.error
+                        else if (data?.status == 0) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.error
+                    )
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("Upload", style = MaterialTheme.typography.bodySmall)
+                            Text("Current Package", style = MaterialTheme.typography.bodySmall)
                             Text(
-                                formatBytes(data.usedData.upload ?: 0),
+                                data?.planName ?: "N/A",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                         Column(horizontalAlignment = Alignment.End) {
-                            Text("Download", style = MaterialTheme.typography.bodySmall)
+                            Text("Validity", style = MaterialTheme.typography.bodySmall)
                             Text(
-                                formatBytes(data.usedData.download ?: 0),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold
+                                formatValidity(data?.currentRecharge?.validity),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
                             )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("Start Date", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                formatDate(data?.startDate),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Expires On", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                formatDate(data?.expiryDate),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Validity Progress Bar
+                    val (progressValue, daysLeft) = calculateValidityProgress(data?.startDate, data?.expiryDate, data?.currentRecharge?.validity)
+
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Package Validity", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "$daysLeft days left",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (daysLeft <= 3) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        LinearProgressIndicator(
+                            progress = { progressValue },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp),
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                            color = if (daysLeft <= 3) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+
+            // Used Data Card
+            if (data?.usedData != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Data Usage",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Upload", style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    formatBytes(data.usedData.upload ?: 0),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text("Download", style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    formatBytes(data.usedData.download ?: 0),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // Quick Actions
-        Text(
-            text = "Quick Actions",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold
-        )
+            // Quick Actions
+            Text(
+                text = "Quick Actions",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            QuickActionCard(
-                icon = Icons.Filled.List,
-                title = "Packages",
-                description = "Explore plans",
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    navController.navigate("packages") {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionCard(
+                    icon = Icons.Filled.List,
+                    title = "Packages",
+                    description = "Explore plans",
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        navController.navigate("packages") {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
-                }
-            )
-            QuickActionCard(
-                icon = Icons.Filled.AccountBox,
-                title = "Billing",
-                description = "Receipts & Invoices",
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    navController.navigate("billing") {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+                )
+                QuickActionCard(
+                    icon = Icons.Filled.AccountBox,
+                    title = "Billing",
+                    description = "Receipts & Invoices",
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        navController.navigate("billing") {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
-                }
-            )
-        }
+                )
+            }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            QuickActionCard(
-                icon = Icons.Filled.Router,
-                title = "Router",
-                description = "Manage device",
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    navController.navigate("router") {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionCard(
+                    icon = Icons.Filled.Router,
+                    title = "Router",
+                    description = "Manage device",
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        navController.navigate("router") {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
-                }
-            )
-            QuickActionCard(
-                icon = Icons.Filled.Info,
-                title = "Support",
-                description = "Contact us",
-                modifier = Modifier.weight(1f),
-                onClick = {
-                    navController.navigate("support") {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+                )
+                QuickActionCard(
+                    icon = Icons.Filled.Info,
+                    title = "Support",
+                    description = "Contact us",
+                    modifier = Modifier.weight(1f),
+                    onClick = {
+                        navController.navigate("support") {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
-                }
-            )
+                )
+            }
         }
     }
 }

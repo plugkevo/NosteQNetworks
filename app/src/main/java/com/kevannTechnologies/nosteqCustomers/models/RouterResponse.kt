@@ -10,6 +10,12 @@ data class RebootResponse(
     val response: String
 )
 
+// Administrative Status Response
+data class AdministrativeStatusResponse(
+    val status: Boolean,
+    @SerializedName("administrative_status") val administrativeStatus: String
+)
+
 // ONU Status Response
 data class OnuStatusResponse(
     val status: Boolean,

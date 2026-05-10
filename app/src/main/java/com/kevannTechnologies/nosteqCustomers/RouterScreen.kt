@@ -129,13 +129,6 @@ fun RouterScreen(
         }
     }
 
-    // Fetch WiFi and LAN administrative status when ONU changes
-    LaunchedEffect(selectedOnuIndex, onuList) {
-        if (onuList.isEmpty()) return@LaunchedEffect
-        fetchWiFiAdministrativeStatus()
-        fetchLanAdministrativeStatus()
-    }
-
     // Fetch data usage for selected ONU
     LaunchedEffect(selectedOnuIndex, onuList) {
         if (onuList.isEmpty()) return@LaunchedEffect
@@ -316,7 +309,7 @@ fun RouterScreen(
                         message = "ONU enabled successfully",
                         duration = SnackbarDuration.Short
                     )
-                    showOnuStatusDialog = false
+                    showOnuConfirmDialog = false
                     // Wait a moment for the backend to process the change, then refetch
                     kotlinx.coroutines.delay(500)
                     refetchOnuList()
@@ -366,7 +359,7 @@ fun RouterScreen(
                         message = "ONU disabled successfully",
                         duration = SnackbarDuration.Short
                     )
-                    showOnuStatusDialog = false
+                    showOnuConfirmDialog = false
                     // Wait a moment for the backend to process the change, then refetch
                     kotlinx.coroutines.delay(500)
                     refetchOnuList()
@@ -438,6 +431,13 @@ fun RouterScreen(
                 isLoadingLanStatus = false
             }
         }
+    }
+
+    // Fetch WiFi and LAN administrative status when ONU changes
+    LaunchedEffect(selectedOnuIndex, onuList) {
+        if (onuList.isEmpty()) return@LaunchedEffect
+        fetchWiFiAdministrativeStatus()
+        fetchLanAdministrativeStatus()
     }
 
     val selectedOnu = if (onuList.isNotEmpty()) onuList[selectedOnuIndex] else null

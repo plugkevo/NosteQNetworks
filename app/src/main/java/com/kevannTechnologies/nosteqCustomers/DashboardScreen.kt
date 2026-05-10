@@ -107,7 +107,8 @@ fun DashboardScreen(navController: NavController) {
             FloatingActionButton(
                 onClick = {
                     val phoneNumber = "254743101738" // +254 for Kenya
-                    val message = "Hi, I need help with my Nosteq account"
+                    val username = prefsManager.getUsername() ?: "User"
+                    val message = "Hi, I'm $username and I need help with my Nosteq account"
                     val whatsappUrl = "https://wa.me/$phoneNumber?text=${Uri.encode(message)}"
                     
                     val intent = Intent(Intent.ACTION_VIEW).apply {

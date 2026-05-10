@@ -111,16 +111,14 @@ fun DashboardScreen(navController: NavController) {
                     val message = "Hi, I'm $username and I need help with my Nosteq account"
                     val whatsappUrl = "https://wa.me/$phoneNumber?text=${Uri.encode(message)}"
                     
-                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                        data = Uri.parse(whatsappUrl)
-                    }
-                    
                     try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsappUrl))
                         context.startActivity(intent)
                     } catch (e: Exception) {
                         // Fallback if WhatsApp is not installed
                         val fallbackUrl = "https://web.whatsapp.com/send?phone=$phoneNumber&text=${Uri.encode(message)}"
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
+                        val fallbackIntent = Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl))
+                        context.startActivity(fallbackIntent)
                     }
                 },
                 containerColor = Color(0xFF25D366), // WhatsApp green

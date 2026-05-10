@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +26,8 @@ import retrofit2.Callback
 import retrofit2.Response
 import java.text.SimpleDateFormat
 import java.util.*
+import android.content.Intent
+import android.net.Uri
 
 
 
@@ -99,13 +102,45 @@ fun DashboardScreen(navController: NavController) {
 
     val data = dashboardData?.data
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    val phoneNumber = "254743101738" // +254 for Kenya
+                    val message = "Hi, I need help with my Nosteq account"
+                    val whatsappUrl = "https://wa.me/$phoneNumber?text=${Uri.encode(message)}"
+                    
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        data = Uri.parse(whatsappUrl)
+                    }
+                    
+                    try {
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        // Fallback if WhatsApp is not installed
+                        val fallbackUrl = "https://web.whatsapp.com/send?phone=$phoneNumber&text=${Uri.encode(message)}"
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)))
+                    }
+                },
+                containerColor = Color(0xFF25D366), // WhatsApp green
+                contentColor = androidx.compose.ui.graphics.Color.White,
+                modifier = Modifier.size(56.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Chat,
+                    contentDescription = "WhatsApp Support"
+                )
+            }
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         Text(
             text = "Dashboard",
             style = MaterialTheme.typography.headlineMedium,
@@ -343,6 +378,7 @@ fun DashboardScreen(navController: NavController) {
                 }
             )
         }
+    }
     }
 }
 

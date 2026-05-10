@@ -45,6 +45,12 @@ interface SmartOltApiService {
         @Header("X-Token") apiKey: String
     ): Response<RebootResponse>
 
+    @GET("onu/get_onu_administrative_status/{onu_external_id}")
+    suspend fun getOnuAdministrativeStatus(
+        @Path("onu_external_id") onuExternalId: String,
+        @Header("X-Token") apiKey: String
+    ): Response<RebootResponse>
+
     @GET("onu/get_onus_statuses")
     suspend fun getOnuStatuses(
         @Header("X-Token") apiKey: String,

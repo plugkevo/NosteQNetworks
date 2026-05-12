@@ -1180,6 +1180,127 @@ fun RouterScreen(
             }
         )
     }
+
+    // WiFi Credentials Dialog
+    if (showWiFiDialog && onuList.isNotEmpty()) {
+        var ssid by remember { mutableStateOf("") }
+        var password by remember { mutableStateOf("") }
+        var showPassword by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { showWiFiDialog = false },
+            title = { Text("Change WiFi Credentials") },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Update WiFi SSID and password for ${onuList[selectedOnuIndex].name ?: "Device"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    OutlinedTextField(
+                        value = ssid,
+                        onValueChange = { ssid = it },
+                        label = { Text("WiFi SSID (Network Name)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("WiFi Password") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        visualTransformation = if (showPassword)
+                            VisualTransformation.None
+                        else
+                            PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showPassword = !showPassword }) {
+                                Icon(
+                                    imageVector = if (showPassword)
+                                        Icons.Default.Visibility
+                                    else
+                                        Icons.Default.VisibilityOff,
+                                    contentDescription = if (showPassword)
+                                        "Hide password"
+                                    else
+                                        "Show password"
+                                )
+                            }
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (ssid.isNotEmpty() && password.isNotEmpty()) {
+                            isChangingWiFi = true
+                            scope.launch {
+                                try {
+                                    val selectedOnu = onuList[selectedOnuIndex]
+                                    // TODO: Replace with actual API call
+                                    // val result = WiFiCredentialManager.changeWiFiCredentials(
+                                    //     onuExternalId = selectedOnu.uniqueExternalId,
+                                    //     newSSID = ssid,
+                                    //     newPassword = password
+                                    // )
+                                    
+                                    // For now, show success
+                                    snackbarHostState.showSnackbar(
+                                        "WiFi credentials updated successfully",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    showWiFiDialog = false
+                                } catch (e: Exception) {
+                                    snackbarHostState.showSnackbar(
+                                        "Error: ${e.message}",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                } finally {
+                                    isChangingWiFi = false
+                                }
+                            }
+                        } else {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    "Please fill in all fields",
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                        }
+                    },
+                    enabled = !isChangingWiFi,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50)
+                    )
+                ) {
+                    if (isChangingWiFi) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text("Update Credentials")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showWiFiDialog = false },
+                    enabled = !isChangingWiFi
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable

@@ -14,8 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -52,10 +50,14 @@ fun RouterScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
-    var showWiFiCredentialsDialog by remember { mutableStateOf(false) }
-    var newWiFiSSID by remember { mutableStateOf("") }
-    var newWiFiPassword by remember { mutableStateOf("") }
-    var showWiFiPassword by remember { mutableStateOf(false) }
+    var showWiFiDialog by remember { mutableStateOf(false) }
+    var isChangingWiFi by remember { mutableStateOf(false) }
+    var selectedGraphType by remember { mutableStateOf("daily") }
+    var isGraphLoading by remember { mutableStateOf(false) }
+    var graphImageUri by remember { mutableStateOf<String?>(null) }
+    var uploadData by remember { mutableStateOf<Long>(0L) }
+    var downloadData by remember { mutableStateOf<Long>(0L) }
+    var isEnablingDisabling by remember { mutableStateOf(false) }
     var showOnuActionsDialog by remember { mutableStateOf(false) }
     var showOnuConfirmDialog by remember { mutableStateOf(false) }
     var onuStatusDialogType by remember { mutableStateOf("") } // "enable" or "disable"
@@ -386,7 +388,7 @@ fun RouterScreen(
             try {
                 isLoadingWiFiStatus = true
                 val selectedOnu = onuList[selectedOnuIndex]
-                
+
                 val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
                     onuExternalId = selectedOnu.uniqueExternalId ?: "",
                     apiKey = SmartOltConfig.API_KEY
@@ -412,7 +414,7 @@ fun RouterScreen(
             try {
                 isLoadingLanStatus = true
                 val selectedOnu = onuList[selectedOnuIndex]
-                
+
                 val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
                     onuExternalId = selectedOnu.uniqueExternalId ?: "",
                     apiKey = SmartOltConfig.API_KEY
@@ -630,7 +632,7 @@ fun RouterScreen(
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { showWiFiCredentialsDialog = true },
+                                .clickable { showWiFiDialog = true },
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer
                             )
@@ -853,7 +855,7 @@ fun RouterScreen(
     // ONU Actions Dialog - Shows Turn On and Turn Off buttons
     if (showOnuActionsDialog) {
         val isOnuOnline = onuStatus == "Online"
-        
+
         AlertDialog(
             onDismissRequest = { showOnuActionsDialog = false },
             title = { Text("Device Control") },
@@ -885,7 +887,7 @@ fun RouterScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Turn On")
                         }
-                        
+
                         Button(
                             onClick = {
                                 if (isOnuOnline) {
@@ -966,7 +968,7 @@ fun RouterScreen(
     // WiFi Actions Dialog
     if (showWiFiActionsDialog) {
         val isWiFiEnabled = wiFiAdministrativeStatus?.lowercase() == "enabled"
-        
+
         AlertDialog(
             onDismissRequest = { showWiFiActionsDialog = false },
             title = { Text("WiFi Control") },
@@ -998,7 +1000,7 @@ fun RouterScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Turn On")
                         }
-                        
+
                         Button(
                             onClick = {
                                 if (isWiFiEnabled) {
@@ -1074,7 +1076,7 @@ fun RouterScreen(
     // LAN Actions Dialog
     if (showLanActionsDialog) {
         val isLanEnabled = lanAdministrativeStatus?.lowercase() == "enabled"
-        
+
         AlertDialog(
             onDismissRequest = { showLanActionsDialog = false },
             title = { Text("LAN Control") },
@@ -1106,7 +1108,7 @@ fun RouterScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Turn On")
                         }
-                        
+
                         Button(
                             onClick = {
                                 if (isLanEnabled) {
@@ -1179,95 +1181,6 @@ fun RouterScreen(
         )
     }
 }
-
-    // WiFi Credentials Dialog
-    if (showWiFiCredentialsDialog) {
-        AlertDialog(
-            onDismissRequest = { showWiFiCredentialsDialog = false },
-            title = { Text("Change WiFi Credentials") },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    OutlinedTextField(
-                        value = newWiFiSSID,
-                        onValueChange = { newWiFiSSID = it },
-                        label = { Text("WiFi SSID (Network Name)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    
-                    OutlinedTextField(
-                        value = newWiFiPassword,
-                        onValueChange = { newWiFiPassword = it },
-                        label = { Text("WiFi Password") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        visualTransformation = if (showWiFiPassword)
-                            VisualTransformation.None
-                        else
-                            PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { showWiFiPassword = !showWiFiPassword }) {
-                                Icon(
-                                    imageVector = if (showWiFiPassword)
-                                        Icons.Default.Visibility
-                                    else
-                                        Icons.Default.VisibilityOff,
-                                    contentDescription = if (showWiFiPassword)
-                                        "Hide password"
-                                    else
-                                        "Show password"
-                                )
-                            }
-                        }
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newWiFiSSID.isNotEmpty() && newWiFiPassword.isNotEmpty()) {
-                            // TODO: Implement WiFi credentials change API call
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "WiFi credentials updated",
-                                    duration = SnackbarDuration.Short
-                                )
-                            }
-                            newWiFiSSID = ""
-                            newWiFiPassword = ""
-                            showWiFiCredentialsDialog = false
-                        } else {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Please fill in all fields",
-                                    duration = SnackbarDuration.Short
-                                )
-                            }
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
-                    )
-                ) {
-                    Text("Update Credentials")
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = {
-                        newWiFiSSID = ""
-                        newWiFiPassword = ""
-                        showWiFiCredentialsDialog = false
-                    }
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 
 @Composable
 fun QuickActionCard(

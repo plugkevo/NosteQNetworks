@@ -1159,24 +1159,68 @@ fun RouterScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        // TODO: Implement LAN enable/disable API call
-                        showLanConfirmDialog = false
+                        isLoadingLanStatus = true
                         scope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = "LAN $buttonText command sent",
-                                duration = SnackbarDuration.Short
-                            )
+                            try {
+                                val selectedOnu = onuList[selectedOnuIndex]
+                                val result = if (isEnable) {
+                                    LANManager.enableLan(
+                                        onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                                        ethernetPort = "eth_0/1"
+                                    )
+                                } else {
+                                    LANManager.disableLan(
+                                        onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                                        ethernetPort = "eth_0/1"
+                                    )
+                                }
+
+                                result.onSuccess { message ->
+                                    snackbarHostState.showSnackbar(
+                                        message = message,
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    showLanConfirmDialog = false
+                                    // Refetch LAN status after change
+                                    kotlinx.coroutines.delay(500)
+                                    fetchLanAdministrativeStatus()
+                                }.onFailure { error ->
+                                    snackbarHostState.showSnackbar(
+                                        message = "Error: ${error.message}",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar(
+                                    message = "Error: ${e.message}",
+                                    duration = SnackbarDuration.Short
+                                )
+                            } finally {
+                                isLoadingLanStatus = false
+                            }
                         }
                     },
+                    enabled = !isLoadingLanStatus,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFB71C1C)
                     )
                 ) {
+                    if (isLoadingLanStatus) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(buttonText)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showLanConfirmDialog = false }) {
+                OutlinedButton(
+                    onClick = { showLanConfirmDialog = false },
+                    enabled = !isLoadingLanStatus
+                ) {
                     Text("Cancel")
                 }
             }

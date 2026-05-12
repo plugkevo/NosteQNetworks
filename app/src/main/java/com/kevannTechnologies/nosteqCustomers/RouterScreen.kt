@@ -18,6 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -1206,7 +1208,8 @@ fun RouterScreen(
                         onValueChange = { ssid = it },
                         label = { Text("WiFi SSID (Network Name)") },
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+                        singleLine = true,
+                        enabled = !isChangingWiFi
                     )
                     
                     OutlinedTextField(
@@ -1215,12 +1218,16 @@ fun RouterScreen(
                         label = { Text("WiFi Password") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
+                        enabled = !isChangingWiFi,
                         visualTransformation = if (showPassword)
                             VisualTransformation.None
                         else
                             PasswordVisualTransformation(),
                         trailingIcon = {
-                            IconButton(onClick = { showPassword = !showPassword }) {
+                            IconButton(
+                                onClick = { showPassword = !showPassword },
+                                enabled = !isChangingWiFi
+                            ) {
                                 Icon(
                                     imageVector = if (showPassword)
                                         Icons.Default.Visibility
@@ -1244,22 +1251,29 @@ fun RouterScreen(
                             scope.launch {
                                 try {
                                     val selectedOnu = onuList[selectedOnuIndex]
-                                    // TODO: Replace with actual API call
-                                    // val result = WiFiCredentialManager.changeWiFiCredentials(
-                                    //     onuExternalId = selectedOnu.uniqueExternalId,
-                                    //     newSSID = ssid,
-                                    //     newPassword = password
-                                    // )
-                                    
-                                    // For now, show success
-                                    snackbarHostState.showSnackbar(
-                                        "WiFi credentials updated successfully",
-                                        duration = SnackbarDuration.Short
+                                    val result = WiFiCredentialManager.changeWiFiCredentials(
+                                        onuExternalId = selectedOnu.uniqueExternalId,
+                                        newSSID = ssid,
+                                        newPassword = password
                                     )
-                                    showWiFiDialog = false
+
+                                    result.onSuccess { message ->
+                                        snackbarHostState.showSnackbar(
+                                            message = message,
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        showWiFiDialog = false
+                                        ssid = ""
+                                        password = ""
+                                    }.onFailure { error ->
+                                        snackbarHostState.showSnackbar(
+                                            message = "Error: ${error.message}",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                    }
                                 } catch (e: Exception) {
                                     snackbarHostState.showSnackbar(
-                                        "Error: ${e.message}",
+                                        message = "Error: ${e.message}",
                                         duration = SnackbarDuration.Short
                                     )
                                 } finally {
@@ -1269,7 +1283,7 @@ fun RouterScreen(
                         } else {
                             scope.launch {
                                 snackbarHostState.showSnackbar(
-                                    "Please fill in all fields",
+                                    message = "Please fill in all fields",
                                     duration = SnackbarDuration.Short
                                 )
                             }

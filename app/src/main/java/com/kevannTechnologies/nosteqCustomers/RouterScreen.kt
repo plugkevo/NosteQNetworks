@@ -1051,24 +1051,71 @@ fun RouterScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        // TODO: Implement WiFi enable/disable API call
-                        showWiFiConfirmDialog = false
+                        isLoadingWiFiStatus = true
                         scope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = "WiFi $buttonText command sent",
-                                duration = SnackbarDuration.Short
-                            )
+                            try {
+                                val selectedOnu = onuList[selectedOnuIndex]
+                                val result = if (isEnable) {
+                                    WiFiPortManager.enableWiFi(
+                                        onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                                        wifiPort = "wifi_0/1",
+                                        ssid = "NosteqWiFi",
+                                        password = "default123",
+                                        authMode = "WPA2"
+                                    )
+                                } else {
+                                    WiFiPortManager.disableWiFi(
+                                        onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                                        wifiPort = "wifi_0/1"
+                                    )
+                                }
+
+                                result.onSuccess { message ->
+                                    snackbarHostState.showSnackbar(
+                                        message = message,
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    showWiFiConfirmDialog = false
+                                    // Refetch WiFi status after change
+                                    kotlinx.coroutines.delay(500)
+                                    fetchWiFiAdministrativeStatus()
+                                }.onFailure { error ->
+                                    snackbarHostState.showSnackbar(
+                                        message = "Error: ${error.message}",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar(
+                                    message = "Error: ${e.message}",
+                                    duration = SnackbarDuration.Short
+                                )
+                            } finally {
+                                isLoadingWiFiStatus = false
+                            }
                         }
                     },
+                    enabled = !isLoadingWiFiStatus,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFB71C1C)
                     )
                 ) {
+                    if (isLoadingWiFiStatus) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     Text(buttonText)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { showWiFiConfirmDialog = false }) {
+                OutlinedButton(
+                    onClick = { showWiFiConfirmDialog = false },
+                    enabled = !isLoadingWiFiStatus
+                ) {
                     Text("Cancel")
                 }
             }

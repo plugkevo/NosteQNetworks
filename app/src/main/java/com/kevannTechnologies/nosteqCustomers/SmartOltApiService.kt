@@ -136,6 +136,26 @@ interface SmartOltApiService {
         @Header("X-Token") apiKey: String
     ): Response<RebootResponse>
 
+    @FormUrlEncoded
+    @POST("onu/set_wifi_port_lan/{onu_external_id}")
+    suspend fun enableWiFiPort(
+        @Path("onu_external_id") onuExternalId: String,
+        @Field("wifi_port") wifiPort: String = "wifi_0/1",
+        @Field("dhcp") dhcp: String = "No control",
+        @Field("ssid") ssid: String,
+        @Field("password") password: String,
+        @Field("authentication_mode") authMode: String = "WPA2",
+        @Header("X-Token") apiKey: String
+    ): Response<RebootResponse>
+
+    @FormUrlEncoded
+    @POST("onu/shutdown_wifi_port/{onu_external_id}")
+    suspend fun shutdownWiFiPort(
+        @Path("onu_external_id") onuExternalId: String,
+        @Field("wifi_port") wifiPort: String = "wifi_0/1",
+        @Header("X-Token") apiKey: String
+    ): Response<RebootResponse>
+
 }
 
 object SmartOltClient {

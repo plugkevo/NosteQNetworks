@@ -286,49 +286,35 @@ fun RouterScreen(
     fun enableOnu() {
         if (onuList.isEmpty()) return
 
+        isEnablingDisabling = true
         scope.launch {
             try {
                 val selectedOnu = onuList[selectedOnuIndex]
-                isEnablingDisabling = true
-
-                AppLogger.logInfo("RouterScreen: Enabling ONU",
-                    mapOf("onuExternalId" to selectedOnu.uniqueExternalId) as Map<String, String>
+                val result = DeviceManager.enableDevice(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: ""
                 )
 
-                val response = SmartOltClient.apiService.enableOnu(
-                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                    apiKey = SmartOltConfig.API_KEY
-                )
-
-                AppLogger.logApiCall(
-                    endpoint = "enableOnu",
-                    success = response.isSuccessful && response.body()?.status == true,
-                    responseCode = response.code()
-                )
-
-                if (response.isSuccessful && response.body()?.status == true) {
+                result.onSuccess { message ->
                     snackbarHostState.showSnackbar(
-                        message = "ONU enabled successfully",
+                        message = message,
                         duration = SnackbarDuration.Short
                     )
                     showOnuConfirmDialog = false
-                    // Wait a moment for the backend to process the change, then refetch
                     kotlinx.coroutines.delay(500)
                     refetchOnuList()
-                } else {
-                    isEnablingDisabling = false
+                }.onFailure { error ->
                     snackbarHostState.showSnackbar(
-                        message = "Unable to enable ONU. Please try again",
+                        message = "Error: ${error.message}",
                         duration = SnackbarDuration.Short
                     )
                 }
             } catch (e: Exception) {
-                isEnablingDisabling = false
-                AppLogger.logError("RouterScreen: Enable ONU failed", e)
                 snackbarHostState.showSnackbar(
-                    message = "Network error. Please check your connection",
+                    message = "Error: ${e.message}",
                     duration = SnackbarDuration.Short
                 )
+            } finally {
+                isEnablingDisabling = false
             }
         }
     }
@@ -336,49 +322,35 @@ fun RouterScreen(
     fun disableOnu() {
         if (onuList.isEmpty()) return
 
+        isEnablingDisabling = true
         scope.launch {
             try {
                 val selectedOnu = onuList[selectedOnuIndex]
-                isEnablingDisabling = true
-
-                AppLogger.logInfo("RouterScreen: Disabling ONU",
-                    mapOf("onuExternalId" to selectedOnu.uniqueExternalId) as Map<String, String>
+                val result = DeviceManager.disableDevice(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: ""
                 )
 
-                val response = SmartOltClient.apiService.disableOnu(
-                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                    apiKey = SmartOltConfig.API_KEY
-                )
-
-                AppLogger.logApiCall(
-                    endpoint = "disableOnu",
-                    success = response.isSuccessful && response.body()?.status == true,
-                    responseCode = response.code()
-                )
-
-                if (response.isSuccessful && response.body()?.status == true) {
+                result.onSuccess { message ->
                     snackbarHostState.showSnackbar(
-                        message = "ONU disabled successfully",
+                        message = message,
                         duration = SnackbarDuration.Short
                     )
                     showOnuConfirmDialog = false
-                    // Wait a moment for the backend to process the change, then refetch
                     kotlinx.coroutines.delay(500)
                     refetchOnuList()
-                } else {
-                    isEnablingDisabling = false
+                }.onFailure { error ->
                     snackbarHostState.showSnackbar(
-                        message = "Unable to disable ONU. Please try again",
+                        message = "Error: ${error.message}",
                         duration = SnackbarDuration.Short
                     )
                 }
             } catch (e: Exception) {
-                isEnablingDisabling = false
-                AppLogger.logError("RouterScreen: Disable ONU failed", e)
                 snackbarHostState.showSnackbar(
-                    message = "Network error. Please check your connection",
+                    message = "Error: ${e.message}",
                     duration = SnackbarDuration.Short
                 )
+            } finally {
+                isEnablingDisabling = false
             }
         }
     }

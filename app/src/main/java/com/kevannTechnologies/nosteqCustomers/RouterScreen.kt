@@ -855,424 +855,176 @@ fun RouterScreen(
     }
 
     // ONU Actions Dialog - Shows Turn On and Turn Off buttons
-    if (showOnuActionsDialog) {
-        val isOnuOnline = onuStatus == "Online"
+    // ONU Control Dialogs
+    OnuActionsDialog(
+        showDialog = showOnuActionsDialog,
+        onDismiss = { showOnuActionsDialog = false },
+        onuStatus = onuStatus,
+        onEnableClick = {
+            onuStatusDialogType = "enable"
+            showOnuActionsDialog = false
+            showOnuConfirmDialog = true
+        },
+        onDisableClick = {
+            onuStatusDialogType = "disable"
+            showOnuActionsDialog = false
+            showOnuConfirmDialog = true
+        }
+    )
 
-        AlertDialog(
-            onDismissRequest = { showOnuActionsDialog = false },
-            title = { Text("Device Control") },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                if (!isOnuOnline) {
-                                    onuStatusDialogType = "enable"
-                                    showOnuActionsDialog = false
-                                    showOnuConfirmDialog = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = !isOnuOnline,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4CAF50),
-                                disabledContainerColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Turn On")
-                        }
+    OnuConfirmDialog(
+        showDialog = showOnuConfirmDialog,
+        onDismiss = { showOnuConfirmDialog = false },
+        isEnable = onuStatusDialogType == "enable",
+        isLoading = isEnablingDisabling,
+        onConfirm = {
+            if (onuStatusDialogType == "enable") enableOnu() else disableOnu()
+            showOnuConfirmDialog = false
+        }
+    )
 
-                        Button(
-                            onClick = {
-                                if (isOnuOnline) {
-                                    onuStatusDialogType = "disable"
-                                    showOnuActionsDialog = false
-                                    showOnuConfirmDialog = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = isOnuOnline,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFB71C1C),
-                                disabledContainerColor = Color(0xFFB71C1C).copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Turn Off")
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                OutlinedButton(onClick = { showOnuActionsDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
+    // WiFi Control Dialogs
+    WiFiActionsDialog(
+        showDialog = showWiFiActionsDialog,
+        onDismiss = { showWiFiActionsDialog = false },
+        wiFiAdministrativeStatus = wiFiAdministrativeStatus,
+        onEnableClick = {
+            wiFiStatusDialogType = "enable"
+            showWiFiActionsDialog = false
+            showWiFiConfirmDialog = true
+        },
+        onDisableClick = {
+            wiFiStatusDialogType = "disable"
+            showWiFiActionsDialog = false
+            showWiFiConfirmDialog = true
+        }
+    )
 
-    // ONU Confirmation Dialog
-    if (showOnuConfirmDialog) {
-        val isEnable = onuStatusDialogType == "enable"
-        val titleText = if (isEnable) "Turn On Device?" else "Turn Off Device?"
-        val messageText = if (isEnable)
-            "Turning on your device will bring it online and restore service."
-        else
-            "Turning off your device will take it offline and stop service."
-        val buttonText = if (isEnable) "Turn On" else "Turn Off"
-
-        AlertDialog(
-            onDismissRequest = { showOnuConfirmDialog = false },
-            title = { Text(titleText) },
-            text = { Text(messageText) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (isEnable) enableOnu() else disableOnu()
-                        showOnuConfirmDialog = false
-                    },
-                    enabled = !isEnablingDisabling,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFB71C1C)
-                    )
-                ) {
-                    if (isEnablingDisabling) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color.White
+    WiFiConfirmDialog(
+        showDialog = showWiFiConfirmDialog,
+        onDismiss = { showWiFiConfirmDialog = false },
+        isEnable = wiFiStatusDialogType == "enable",
+        isLoading = isLoadingWiFiStatus,
+        snackbarHostState = snackbarHostState,
+        scope = scope,
+        onuList = onuList,
+        selectedOnuIndex = selectedOnuIndex,
+        onFetchWiFiStatus = { fetchWiFiAdministrativeStatus() },
+        onConfirm = {
+            isLoadingWiFiStatus = true
+            scope.launch {
+                try {
+                    val selectedOnu = onuList[selectedOnuIndex]
+                    val result = if (wiFiStatusDialogType == "enable") {
+                        WiFiPortManager.enableWiFi(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                            wifiPort = "wifi_0/1",
+                            ssid = "NosteqWiFi",
+                            password = "default123",
+                            authMode = "WPA2"
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                    }
-                    Text(buttonText)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showOnuConfirmDialog = false },
-                    enabled = !isEnablingDisabling
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    // WiFi Actions Dialog
-    if (showWiFiActionsDialog) {
-        val isWiFiEnabled = wiFiAdministrativeStatus?.lowercase() == "enabled"
-
-        AlertDialog(
-            onDismissRequest = { showWiFiActionsDialog = false },
-            title = { Text("WiFi Control") },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                if (!isWiFiEnabled) {
-                                    wiFiStatusDialogType = "enable"
-                                    showWiFiActionsDialog = false
-                                    showWiFiConfirmDialog = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = !isWiFiEnabled,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4CAF50),
-                                disabledContainerColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Turn On")
-                        }
-
-                        Button(
-                            onClick = {
-                                if (isWiFiEnabled) {
-                                    wiFiStatusDialogType = "disable"
-                                    showWiFiActionsDialog = false
-                                    showWiFiConfirmDialog = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = isWiFiEnabled,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFB71C1C),
-                                disabledContainerColor = Color(0xFFB71C1C).copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Turn Off")
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                OutlinedButton(onClick = { showWiFiActionsDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-
-    // WiFi Confirmation Dialog
-    if (showWiFiConfirmDialog) {
-        val isEnable = wiFiStatusDialogType == "enable"
-        val titleText = if (isEnable) "Turn On WiFi?" else "Turn Off WiFi?"
-        val messageText = if (isEnable)
-            "Enabling WiFi will allow wireless devices to connect to your network."
-        else
-            "Disabling WiFi will disconnect all wireless devices from your network."
-        val buttonText = if (isEnable) "Turn On" else "Turn Off"
-
-        AlertDialog(
-            onDismissRequest = { showWiFiConfirmDialog = false },
-            title = { Text(titleText) },
-            text = { Text(messageText) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        isLoadingWiFiStatus = true
-                        scope.launch {
-                            try {
-                                val selectedOnu = onuList[selectedOnuIndex]
-                                val result = if (isEnable) {
-                                    WiFiPortManager.enableWiFi(
-                                        onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                                        wifiPort = "wifi_0/1",
-                                        ssid = "NosteqWiFi",
-                                        password = "default123",
-                                        authMode = "WPA2"
-                                    )
-                                } else {
-                                    WiFiPortManager.disableWiFi(
-                                        onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                                        wifiPort = "wifi_0/1"
-                                    )
-                                }
-
-                                result.onSuccess { message ->
-                                    snackbarHostState.showSnackbar(
-                                        message = message,
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    showWiFiConfirmDialog = false
-                                    // Refetch WiFi status after change
-                                    kotlinx.coroutines.delay(500)
-                                    fetchWiFiAdministrativeStatus()
-                                }.onFailure { error ->
-                                    snackbarHostState.showSnackbar(
-                                        message = "Error: ${error.message}",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar(
-                                    message = "Error: ${e.message}",
-                                    duration = SnackbarDuration.Short
-                                )
-                            } finally {
-                                isLoadingWiFiStatus = false
-                            }
-                        }
-                    },
-                    enabled = !isLoadingWiFiStatus,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFB71C1C)
-                    )
-                ) {
-                    if (isLoadingWiFiStatus) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
+                    } else {
+                        WiFiPortManager.disableWiFi(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                            wifiPort = "wifi_0/1"
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
                     }
-                    Text(buttonText)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showWiFiConfirmDialog = false },
-                    enabled = !isLoadingWiFiStatus
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
 
-    // LAN Actions Dialog
-    if (showLanActionsDialog) {
-        val isLanEnabled = lanAdministrativeStatus?.lowercase() == "enabled"
-
-        AlertDialog(
-            onDismissRequest = { showLanActionsDialog = false },
-            title = { Text("LAN Control") },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                if (!isLanEnabled) {
-                                    lanStatusDialogType = "enable"
-                                    showLanActionsDialog = false
-                                    showLanConfirmDialog = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = !isLanEnabled,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4CAF50),
-                                disabledContainerColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Turn On")
-                        }
-
-                        Button(
-                            onClick = {
-                                if (isLanEnabled) {
-                                    lanStatusDialogType = "disable"
-                                    showLanActionsDialog = false
-                                    showLanConfirmDialog = true
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = isLanEnabled,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFB71C1C),
-                                disabledContainerColor = Color(0xFFB71C1C).copy(alpha = 0.5f)
-                            )
-                        ) {
-                            Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Turn Off")
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                OutlinedButton(onClick = { showLanActionsDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
-    }
-
-    // LAN Confirmation Dialog
-    if (showLanConfirmDialog) {
-        val isEnable = lanStatusDialogType == "enable"
-        val titleText = if (isEnable) "Turn On LAN?" else "Turn Off LAN?"
-        val messageText = if (isEnable)
-            "Enabling LAN will allow wired devices to connect to your network."
-        else
-            "Disabling LAN will disconnect all wired devices from your network."
-        val buttonText = if (isEnable) "Turn On" else "Turn Off"
-
-        AlertDialog(
-            onDismissRequest = { showLanConfirmDialog = false },
-            title = { Text(titleText) },
-            text = { Text(messageText) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        isLoadingLanStatus = true
-                        scope.launch {
-                            try {
-                                val selectedOnu = onuList[selectedOnuIndex]
-                                val result = if (isEnable) {
-                                    LANManager.enableLan(
-                                        onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                                        ethernetPort = "eth_0/1"
-                                    )
-                                } else {
-                                    LANManager.disableLan(
-                                        onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                                        ethernetPort = "eth_0/1"
-                                    )
-                                }
-
-                                result.onSuccess { message ->
-                                    snackbarHostState.showSnackbar(
-                                        message = message,
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    showLanConfirmDialog = false
-                                    // Refetch LAN status after change
-                                    kotlinx.coroutines.delay(500)
-                                    fetchLanAdministrativeStatus()
-                                }.onFailure { error ->
-                                    snackbarHostState.showSnackbar(
-                                        message = "Error: ${error.message}",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                }
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar(
-                                    message = "Error: ${e.message}",
-                                    duration = SnackbarDuration.Short
-                                )
-                            } finally {
-                                isLoadingLanStatus = false
-                            }
-                        }
-                    },
-                    enabled = !isLoadingLanStatus,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isEnable) Color(0xFF4CAF50) else Color(0xFFB71C1C)
-                    )
-                ) {
-                    if (isLoadingLanStatus) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
+                    result.onSuccess { message ->
+                        snackbarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Short
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        showWiFiConfirmDialog = false
+                        kotlinx.coroutines.delay(500)
+                        fetchWiFiAdministrativeStatus()
+                    }.onFailure { error ->
+                        snackbarHostState.showSnackbar(
+                            message = "Error: ${error.message}",
+                            duration = SnackbarDuration.Short
+                        )
                     }
-                    Text(buttonText)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { showLanConfirmDialog = false },
-                    enabled = !isLoadingLanStatus
-                ) {
-                    Text("Cancel")
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar(
+                        message = "Error: ${e.message}",
+                        duration = SnackbarDuration.Short
+                    )
+                } finally {
+                    isLoadingWiFiStatus = false
                 }
             }
-        )
-    }
+        }
+    )
+
+    // LAN Control Dialogs
+    LanActionsDialog(
+        showDialog = showLanActionsDialog,
+        onDismiss = { showLanActionsDialog = false },
+        lanAdministrativeStatus = lanAdministrativeStatus,
+        onEnableClick = {
+            lanStatusDialogType = "enable"
+            showLanActionsDialog = false
+            showLanConfirmDialog = true
+        },
+        onDisableClick = {
+            lanStatusDialogType = "disable"
+            showLanActionsDialog = false
+            showLanConfirmDialog = true
+        }
+    )
+
+    LanConfirmDialog(
+        showDialog = showLanConfirmDialog,
+        onDismiss = { showLanConfirmDialog = false },
+        isEnable = lanStatusDialogType == "enable",
+        isLoading = isLoadingLanStatus,
+        snackbarHostState = snackbarHostState,
+        scope = scope,
+        onuList = onuList,
+        selectedOnuIndex = selectedOnuIndex,
+        onFetchLanStatus = { fetchLanAdministrativeStatus() },
+        onConfirm = {
+            isLoadingLanStatus = true
+            scope.launch {
+                try {
+                    val selectedOnu = onuList[selectedOnuIndex]
+                    val result = if (lanStatusDialogType == "enable") {
+                        LANManager.enableLan(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                            ethernetPort = "eth_0/1"
+                        )
+                    } else {
+                        LANManager.disableLan(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                            ethernetPort = "eth_0/1"
+                        )
+                    }
+
+                    result.onSuccess { message ->
+                        snackbarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Short
+                        )
+                        showLanConfirmDialog = false
+                        kotlinx.coroutines.delay(500)
+                        fetchLanAdministrativeStatus()
+                    }.onFailure { error ->
+                        snackbarHostState.showSnackbar(
+                            message = "Error: ${error.message}",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar(
+                        message = "Error: ${e.message}",
+                        duration = SnackbarDuration.Short
+                    )
+                } finally {
+                    isLoadingLanStatus = false
+                }
+            }
+        }
+    )
 
     // WiFi Credentials Dialog
     if (showWiFiDialog && onuList.isNotEmpty()) {

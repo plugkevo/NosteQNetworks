@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.kevannTechnologies.nosteqCustomers.models.OnuDetails
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -210,7 +211,7 @@ fun WiFiConfirmDialog(
     isLoading: Boolean,
     snackbarHostState: SnackbarHostState,
     scope: CoroutineScope,
-    onuList: List<OnuModel>,
+    onuList: List<OnuDetails>,
     selectedOnuIndex: Int,
     onFetchWiFiStatus: () -> Unit,
     onConfirm: () -> Unit
@@ -329,7 +330,7 @@ fun LanConfirmDialog(
     isLoading: Boolean,
     snackbarHostState: SnackbarHostState,
     scope: CoroutineScope,
-    onuList: List<OnuModel>,
+    onuList: List<OnuDetails>,
     selectedOnuIndex: Int,
     onFetchLanStatus: () -> Unit,
     onConfirm: () -> Unit

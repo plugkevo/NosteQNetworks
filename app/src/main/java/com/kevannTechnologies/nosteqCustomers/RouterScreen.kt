@@ -275,16 +275,18 @@ fun RouterScreen(
             result.onSuccess { onus ->
                 onuList = onus
                 AppLogger.logInfo("RouterScreen: ONU list refetched. New status: ${if (onuList.isNotEmpty()) onuList[selectedOnuIndex].administrativeStatus else "N/A"}")
-                // Refetch administrative statuses after list refresh
-                kotlinx.coroutines.delay(300)
-                fetchOnuAdministrativeStatus()
-                fetchWiFiAdministrativeStatus()
-                fetchLanAdministrativeStatus()
                 isEnablingDisabling = false
             }.onFailure { exception ->
                 AppLogger.logError("RouterScreen: Refetch failed", exception)
                 isEnablingDisabling = false
             }
+        }
+        // Refetch administrative statuses after list refresh with delay
+        scope.launch {
+            kotlinx.coroutines.delay(500)
+            fetchOnuAdministrativeStatus()
+            fetchWiFiAdministrativeStatus()
+            fetchLanAdministrativeStatus()
         }
     }
 

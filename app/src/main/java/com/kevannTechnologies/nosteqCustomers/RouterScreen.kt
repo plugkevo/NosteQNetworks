@@ -275,6 +275,11 @@ fun RouterScreen(
             result.onSuccess { onus ->
                 onuList = onus
                 AppLogger.logInfo("RouterScreen: ONU list refetched. New status: ${if (onuList.isNotEmpty()) onuList[selectedOnuIndex].administrativeStatus else "N/A"}")
+                // Refetch administrative statuses after list refresh
+                kotlinx.coroutines.delay(300)
+                fetchOnuAdministrativeStatus()
+                fetchWiFiAdministrativeStatus()
+                fetchLanAdministrativeStatus()
                 isEnablingDisabling = false
             }.onFailure { exception ->
                 AppLogger.logError("RouterScreen: Refetch failed", exception)
@@ -355,12 +360,11 @@ fun RouterScreen(
         }
     }
 
-    fun fetchWiFiAdministrativeStatus() {
+    fun fetchOnuAdministrativeStatus() {
         if (onuList.isEmpty()) return
 
         scope.launch {
             try {
-                isLoadingWiFiStatus = true
                 val selectedOnu = onuList[selectedOnuIndex]
 
                 val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
@@ -369,7 +373,36 @@ fun RouterScreen(
                 )
 
                 if (response.isSuccessful) {
+                    val status = response.body()?.administrativeStatus
+                    onuStatus = status
+                    AppLogger.logInfo("RouterScreen: ONU status fetched", 
+                        mapOf("status" to (status ?: "unknown")) as Map<String, String>)
+                } else {
+                    AppLogger.logError("RouterScreen: Failed to fetch ONU status", Exception("HTTP ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                AppLogger.logError("RouterScreen: Error fetching ONU status", e)
+            }
+        }
+    }
+
+    fun fetchWiFiAdministrativeStatus() {
+        if (onuList.isEmpty()) return
+
+        scope.launch {
+            try {
+                isLoadingWiFiStatus = true
+                val selectedOnu = onuList[selectedOnuIndex]
+
+                val response = SmartOltClient.apiService.getWiFiAdministrativeStatus(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                if (response.isSuccessful) {
                     wiFiAdministrativeStatus = response.body()?.administrativeStatus
+                    AppLogger.logInfo("RouterScreen: WiFi status fetched", 
+                        mapOf("status" to (wiFiAdministrativeStatus ?: "unknown")) as Map<String, String>)
                 } else {
                     AppLogger.logError("RouterScreen: Failed to fetch WiFi status", Exception("HTTP ${response.code()}"))
                 }
@@ -389,13 +422,15 @@ fun RouterScreen(
                 isLoadingLanStatus = true
                 val selectedOnu = onuList[selectedOnuIndex]
 
-                val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
+                val response = SmartOltClient.apiService.getLanAdministrativeStatus(
                     onuExternalId = selectedOnu.uniqueExternalId ?: "",
                     apiKey = SmartOltConfig.API_KEY
                 )
 
                 if (response.isSuccessful) {
                     lanAdministrativeStatus = response.body()?.administrativeStatus
+                    AppLogger.logInfo("RouterScreen: LAN status fetched", 
+                        mapOf("status" to (lanAdministrativeStatus ?: "unknown")) as Map<String, String>)
                 } else {
                     AppLogger.logError("RouterScreen: Failed to fetch LAN status", Exception("HTTP ${response.code()}"))
                 }
@@ -407,9 +442,10 @@ fun RouterScreen(
         }
     }
 
-    // Fetch WiFi and LAN administrative status when ONU changes
+    // Fetch ONU, WiFi and LAN administrative status when ONU changes
     LaunchedEffect(selectedOnuIndex, onuList) {
         if (onuList.isEmpty()) return@LaunchedEffect
+        fetchOnuAdministrativeStatus()
         fetchWiFiAdministrativeStatus()
         fetchLanAdministrativeStatus()
     }

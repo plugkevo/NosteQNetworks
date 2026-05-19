@@ -270,78 +270,6 @@ fun RouterScreen(
     }
 
 
-    fun enableOnu() {
-        if (onuList.isEmpty()) return
-
-        isEnablingDisabling = true
-        scope.launch {
-            try {
-                val selectedOnu = onuList[selectedOnuIndex]
-                val result = DeviceManager.enableDevice(
-                    onuExternalId = selectedOnu.uniqueExternalId ?: ""
-                )
-
-                result.onSuccess { message ->
-                    snackbarHostState.showSnackbar(
-                        message = message,
-                        duration = SnackbarDuration.Short
-                    )
-                    showOnuConfirmDialog = false
-                    kotlinx.coroutines.delay(500)
-                    refetchOnuList()
-                }.onFailure { error ->
-                    snackbarHostState.showSnackbar(
-                        message = "Error: ${error.message}",
-                        duration = SnackbarDuration.Short
-                    )
-                }
-            } catch (e: Exception) {
-                snackbarHostState.showSnackbar(
-                    message = "Error: ${e.message}",
-                    duration = SnackbarDuration.Short
-                )
-            } finally {
-                isEnablingDisabling = false
-            }
-        }
-    }
-
-    fun disableOnu() {
-        if (onuList.isEmpty()) return
-
-        isEnablingDisabling = true
-        scope.launch {
-            try {
-                val selectedOnu = onuList[selectedOnuIndex]
-                val result = DeviceManager.disableDevice(
-                    onuExternalId = selectedOnu.uniqueExternalId ?: ""
-                )
-
-                result.onSuccess { message ->
-                    snackbarHostState.showSnackbar(
-                        message = message,
-                        duration = SnackbarDuration.Short
-                    )
-                    showOnuConfirmDialog = false
-                    kotlinx.coroutines.delay(500)
-                    refetchOnuList()
-                }.onFailure { error ->
-                    snackbarHostState.showSnackbar(
-                        message = "Error: ${error.message}",
-                        duration = SnackbarDuration.Short
-                    )
-                }
-            } catch (e: Exception) {
-                snackbarHostState.showSnackbar(
-                    message = "Error: ${e.message}",
-                    duration = SnackbarDuration.Short
-                )
-            } finally {
-                isEnablingDisabling = false
-            }
-        }
-    }
-
     fun fetchOnuAdministrativeStatus() {
         if (onuList.isEmpty()) return
 
@@ -442,6 +370,78 @@ fun RouterScreen(
             fetchOnuAdministrativeStatus()
             fetchWiFiAdministrativeStatus()
             fetchLanAdministrativeStatus()
+        }
+    }
+
+    fun enableOnu() {
+        if (onuList.isEmpty()) return
+
+        isEnablingDisabling = true
+        scope.launch {
+            try {
+                val selectedOnu = onuList[selectedOnuIndex]
+                val result = DeviceManager.enableDevice(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: ""
+                )
+
+                result.onSuccess { message ->
+                    snackbarHostState.showSnackbar(
+                        message = message,
+                        duration = SnackbarDuration.Short
+                    )
+                    showOnuConfirmDialog = false
+                    kotlinx.coroutines.delay(500)
+                    refetchOnuList()
+                }.onFailure { error ->
+                    snackbarHostState.showSnackbar(
+                        message = "Error: ${error.message}",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            } catch (e: Exception) {
+                snackbarHostState.showSnackbar(
+                    message = "Error: ${e.message}",
+                    duration = SnackbarDuration.Short
+                )
+            } finally {
+                isEnablingDisabling = false
+            }
+        }
+    }
+
+    fun disableOnu() {
+        if (onuList.isEmpty()) return
+
+        isEnablingDisabling = true
+        scope.launch {
+            try {
+                val selectedOnu = onuList[selectedOnuIndex]
+                val result = DeviceManager.disableDevice(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: ""
+                )
+
+                result.onSuccess { message ->
+                    snackbarHostState.showSnackbar(
+                        message = message,
+                        duration = SnackbarDuration.Short
+                    )
+                    showOnuConfirmDialog = false
+                    kotlinx.coroutines.delay(500)
+                    refetchOnuList()
+                }.onFailure { error ->
+                    snackbarHostState.showSnackbar(
+                        message = "Error: ${error.message}",
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            } catch (e: Exception) {
+                snackbarHostState.showSnackbar(
+                    message = "Error: ${e.message}",
+                    duration = SnackbarDuration.Short
+                )
+            } finally {
+                isEnablingDisabling = false
+            }
         }
     }
 

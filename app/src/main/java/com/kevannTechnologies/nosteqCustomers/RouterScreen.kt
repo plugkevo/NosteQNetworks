@@ -269,26 +269,6 @@ fun RouterScreen(
         }
     }
 
-    fun refetchOnuList() {
-        scope.launch {
-            val result = onuRepository.fetchAllOnusByUsername(username)
-            result.onSuccess { onus ->
-                onuList = onus
-                AppLogger.logInfo("RouterScreen: ONU list refetched. New status: ${if (onuList.isNotEmpty()) onuList[selectedOnuIndex].administrativeStatus else "N/A"}")
-                isEnablingDisabling = false
-            }.onFailure { exception ->
-                AppLogger.logError("RouterScreen: Refetch failed", exception)
-                isEnablingDisabling = false
-            }
-        }
-        // Refetch administrative statuses after list refresh with delay
-        scope.launch {
-            kotlinx.coroutines.delay(500)
-            fetchOnuAdministrativeStatus()
-            fetchWiFiAdministrativeStatus()
-            fetchLanAdministrativeStatus()
-        }
-    }
 
     fun enableOnu() {
         if (onuList.isEmpty()) return
@@ -441,6 +421,27 @@ fun RouterScreen(
             } finally {
                 isLoadingLanStatus = false
             }
+        }
+    }
+
+    fun refetchOnuList() {
+        scope.launch {
+            val result = onuRepository.fetchAllOnusByUsername(username)
+            result.onSuccess { onus ->
+                onuList = onus
+                AppLogger.logInfo("RouterScreen: ONU list refetched. New status: ${if (onuList.isNotEmpty()) onuList[selectedOnuIndex].administrativeStatus else "N/A"}")
+                isEnablingDisabling = false
+            }.onFailure { exception ->
+                AppLogger.logError("RouterScreen: Refetch failed", exception)
+                isEnablingDisabling = false
+            }
+        }
+        // Refetch administrative statuses after list refresh with delay
+        scope.launch {
+            kotlinx.coroutines.delay(500)
+            fetchOnuAdministrativeStatus()
+            fetchWiFiAdministrativeStatus()
+            fetchLanAdministrativeStatus()
         }
     }
 

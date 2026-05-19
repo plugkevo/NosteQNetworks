@@ -52,18 +52,6 @@ interface SmartOltApiService {
         @Header("X-Token") apiKey: String
     ): Response<AdministrativeStatusResponse>
 
-    @GET("onu/get_wifi_port_administrative_status/{onu_external_id}")
-    suspend fun getWiFiAdministrativeStatus(
-        @Path("onu_external_id") onuExternalId: String,
-        @Header("X-Token") apiKey: String
-    ): Response<AdministrativeStatusResponse>
-
-    @GET("onu/get_ethernet_port_administrative_status/{onu_external_id}")
-    suspend fun getLanAdministrativeStatus(
-        @Path("onu_external_id") onuExternalId: String,
-        @Header("X-Token") apiKey: String
-    ): Response<AdministrativeStatusResponse>
-
     @GET("onu/get_onus_statuses")
     suspend fun getOnuStatuses(
         @Header("X-Token") apiKey: String,

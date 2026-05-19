@@ -304,7 +304,7 @@ fun RouterScreen(
                 isLoadingWiFiStatus = true
                 val selectedOnu = onuList[selectedOnuIndex]
 
-                val response = SmartOltClient.apiService.getWiFiAdministrativeStatus(
+                val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
                     onuExternalId = selectedOnu.uniqueExternalId ?: "",
                     apiKey = SmartOltConfig.API_KEY
                 )
@@ -332,7 +332,7 @@ fun RouterScreen(
                 isLoadingLanStatus = true
                 val selectedOnu = onuList[selectedOnuIndex]
 
-                val response = SmartOltClient.apiService.getLanAdministrativeStatus(
+                val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
                     onuExternalId = selectedOnu.uniqueExternalId ?: "",
                     apiKey = SmartOltConfig.API_KEY
                 )

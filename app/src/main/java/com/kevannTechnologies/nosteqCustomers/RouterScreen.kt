@@ -74,8 +74,6 @@ fun RouterScreen(
     var lanStatusDialogType by remember { mutableStateOf("") } // "enable" or "disable"
     var wiFiAdministrativeStatus by remember { mutableStateOf<String?>(null) }
     var lanAdministrativeStatus by remember { mutableStateOf<String?>(null) }
-    var isLoadingWiFiStatus by remember { mutableStateOf(false) }
-    var isLoadingLanStatus by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -683,7 +681,6 @@ fun RouterScreen(
                                     status = wiFiAdministrativeStatus ?: "Unknown",
                                     isActive = wiFiAdministrativeStatus?.lowercase() == "enabled",
                                     icon = Icons.Default.Wifi,
-                                    isLoading = isLoadingWiFiStatus,
                                     onClick = {
                                         showWiFiActionsDialog = true
                                     }
@@ -696,7 +693,6 @@ fun RouterScreen(
                                     status = lanAdministrativeStatus ?: "Unknown",
                                     isActive = lanAdministrativeStatus?.lowercase() == "enabled",
                                     icon = Icons.Default.Language,
-                                    isLoading = isLoadingLanStatus,
                                     onClick = {
                                         showLanActionsDialog = true
                                     }
@@ -876,14 +872,13 @@ fun RouterScreen(
         showDialog = showWiFiConfirmDialog,
         onDismiss = { showWiFiConfirmDialog = false },
         isEnable = wiFiStatusDialogType == "enable",
-        isLoading = isLoadingWiFiStatus,
+        isLoading = false,
         snackbarHostState = snackbarHostState,
         scope = scope,
         onuList = onuList,
         selectedOnuIndex = selectedOnuIndex,
-        onFetchWiFiStatus = { fetchWiFiAdministrativeStatus() },
+        onFetchWiFiStatus = { fetchOnuDetailsWithStatus() },
         onConfirm = {
-            isLoadingWiFiStatus = true
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
@@ -909,7 +904,7 @@ fun RouterScreen(
                         )
                         showWiFiConfirmDialog = false
                         kotlinx.coroutines.delay(500)
-                        fetchWiFiAdministrativeStatus()
+                        fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(
                             message = "Error: ${error.message}",
@@ -921,8 +916,6 @@ fun RouterScreen(
                         message = "Error: ${e.message}",
                         duration = SnackbarDuration.Short
                     )
-                } finally {
-                    isLoadingWiFiStatus = false
                 }
             }
         }
@@ -949,14 +942,13 @@ fun RouterScreen(
         showDialog = showLanConfirmDialog,
         onDismiss = { showLanConfirmDialog = false },
         isEnable = lanStatusDialogType == "enable",
-        isLoading = isLoadingLanStatus,
+        isLoading = false,
         snackbarHostState = snackbarHostState,
         scope = scope,
         onuList = onuList,
         selectedOnuIndex = selectedOnuIndex,
-        onFetchLanStatus = { fetchLanAdministrativeStatus() },
+        onFetchLanStatus = { fetchOnuDetailsWithStatus() },
         onConfirm = {
-            isLoadingLanStatus = true
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
@@ -979,7 +971,7 @@ fun RouterScreen(
                         )
                         showLanConfirmDialog = false
                         kotlinx.coroutines.delay(500)
-                        fetchLanAdministrativeStatus()
+                        fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(
                             message = "Error: ${error.message}",
@@ -991,8 +983,6 @@ fun RouterScreen(
                         message = "Error: ${e.message}",
                         duration = SnackbarDuration.Short
                     )
-                } finally {
-                    isLoadingLanStatus = false
                 }
             }
         }

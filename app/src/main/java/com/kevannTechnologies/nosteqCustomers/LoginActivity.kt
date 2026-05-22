@@ -60,7 +60,7 @@ class LoginActivity : ComponentActivity() {
 
                                 if (response.isSuccessful && response.body() != null) {
                                     val loginData = response.body()!!.data
-                                    val userId = loginData.user.id
+                                    val userId: Int = loginData.user.id
 
                                     preferencesManager.saveLoginData(
                                         token = loginData.token,
@@ -70,26 +70,22 @@ class LoginActivity : ComponentActivity() {
                                         ispCurrency = loginData.ispDetail.isp_currency
                                     )
 
-                                    // Create/update user profile in Firestore and check password expiration
+                                    // Create/update user profile in Firestore
                                     lifecycleScope.launch {
-                                        try {
-                                            PasswordSecurityManager.createOrUpdateUserProfile(
-                                                userId = userId,
-                                                username = username,
-                                                phoneNumber = username  // Phone number is used as username
-                                            )
+                                        PasswordSecurityManager.createOrUpdateUserProfile(
+                                            userId = userId.toString(),
+                                            username = username,
+                                            phoneNumber = username  // Phone number is used as username
+                                        )
 
-                                            // Check if password needs to be changed
-                                            val shouldChangePassword = PasswordSecurityManager.shouldForcePasswordChange(userId)
-                                            
-                                            if (shouldChangePassword) {
-                                                navigateToChangePassword(userId, username, isFirstLogin = true)
-                                            } else {
-                                                navigateToMain()
-                                            }
-                                        } catch (e: Exception) {
-                                            println("[v0] Password security error: ${e.message}")
-                                            // If Firestore operations fail, proceed to main anyway
+                                        // Check if password needs to be changed
+                                        val shouldChangePassword = PasswordSecurityManager.shouldForcePasswordChange(
+                                            userId.toString()
+                                        )
+
+                                        if (shouldChangePassword) {
+                                            navigateToChangePassword(userId.toString(), username, isFirstLogin = true)
+                                        } else {
                                             navigateToMain()
                                         }
                                     }
@@ -108,13 +104,13 @@ class LoginActivity : ComponentActivity() {
                     fun sendWhatsAppMessage(inputUsername: String, dialogType: String) {
                         // Support team WhatsApp number (replace with actual number)
                         val supportPhoneNumber = "1234567890" // Format: country code without + (e.g., 254 for Kenya, 1 for USA)
-                        
+
                         val message = if (dialogType == "forgot_password") {
                             "Hello, I need help resetting my password. My username is: $inputUsername"
                         } else {
                             "Hello, I need assistance with my account. My username is: $inputUsername"
                         }
-                        
+
                         try {
                             val sendIntent = Intent().apply {
                                 action = Intent.ACTION_VIEW

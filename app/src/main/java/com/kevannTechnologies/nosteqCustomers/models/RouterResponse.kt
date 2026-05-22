@@ -101,7 +101,15 @@ data class OnuDetails(
     val password: String?,
     val catv: String?,
     @SerializedName("administrative_status") val administrativeStatus: String?,
-    @SerializedName("service_ports") val servicePorts: List<ServicePort>?
+    @SerializedName("service_ports") val servicePorts: List<ServicePort>?,
+    @SerializedName("ethernet_ports") val ethernetPorts: List<PortInfo>? = null,
+    @SerializedName("wifi_ports") val wifiPorts: List<PortInfo>? = null
+)
+
+data class PortInfo(
+    val port_id: String? = null,
+    val admin_state: String? = null,
+    @SerializedName("admin_state") val adminState: String? = null
 )
 
 data class ServicePort(

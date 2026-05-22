@@ -49,7 +49,7 @@ fun RouterScreen(
     var onuList by remember { mutableStateOf<List<OnuDetails>>(emptyList()) }
     var selectedOnuIndex by remember { mutableStateOf(0) }
     var onuStatus by remember { mutableStateOf<String?>(null) }
-    var currentOnuDetails by remember { mutableStateOf<com.kevannTechnologies.nosteqCustomers.models.OnuDetails?>(null) }
+    var currentOnuDetails by remember { mutableStateOf<OnuDetails?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
@@ -283,12 +283,19 @@ fun RouterScreen(
                 )
 
                 if (response.isSuccessful && response.body()?.status == true) {
-                    currentOnuDetails = response.body()?.onu_details
+                    val onuDetailsData = response.body()?.onuDetails
+                    currentOnuDetails = onuDetailsData
                     
-                    // Extract LAN and WiFi status from the details
-                    val lanPortStatus = response.body()?.onu_details?.ethernet_ports?.firstOrNull()?.admin_state
-                    val wifiPortStatus = response.body()?.onu_details?.wifi_ports?.firstOrNull()?.admin_state
-                    val onuAdminStatus = response.body()?.onu_details?.administrative_status
+                    // Extract LAN status from ethernet_ports or admin_state
+                    val lanPortStatus = onuDetailsData?.ethernetPorts?.firstOrNull()?.adminState 
+                        ?: onuDetailsData?.ethernetPorts?.firstOrNull()?.admin_state
+                    
+                    // Extract WiFi status from wifi_ports or admin_state
+                    val wifiPortStatus = onuDetailsData?.wifiPorts?.firstOrNull()?.adminState 
+                        ?: onuDetailsData?.wifiPorts?.firstOrNull()?.admin_state
+                    
+                    // Use administrative_status for ONU device status
+                    val onuAdminStatus = onuDetailsData?.administrativeStatus
 
                     onuStatus = onuAdminStatus
                     wiFiAdministrativeStatus = wifiPortStatus ?: "Unknown"

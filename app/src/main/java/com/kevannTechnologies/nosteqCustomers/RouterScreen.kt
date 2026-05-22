@@ -49,6 +49,7 @@ fun RouterScreen(
     var onuList by remember { mutableStateOf<List<OnuDetails>>(emptyList()) }
     var selectedOnuIndex by remember { mutableStateOf(0) }
     var onuStatus by remember { mutableStateOf<String?>(null) }
+    var currentOnuDetails by remember { mutableStateOf<OnuDetails?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
@@ -73,8 +74,6 @@ fun RouterScreen(
     var lanStatusDialogType by remember { mutableStateOf("") } // "enable" or "disable"
     var wiFiAdministrativeStatus by remember { mutableStateOf<String?>(null) }
     var lanAdministrativeStatus by remember { mutableStateOf<String?>(null) }
-    var isLoadingWiFiStatus by remember { mutableStateOf(false) }
-    var isLoadingLanStatus by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -269,6 +268,53 @@ fun RouterScreen(
         }
     }
 
+
+    fun fetchOnuDetailsWithStatus() {
+        if (onuList.isEmpty()) return
+
+        scope.launch {
+            try {
+                val selectedOnu = onuList[selectedOnuIndex]
+                val response = SmartOltClient.apiService.getOnuDetails(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                if (response.isSuccessful && response.body()?.status == true) {
+                    val onuDetailsData = response.body()?.onuDetails
+                    currentOnuDetails = onuDetailsData
+
+                    // Extract LAN status from ethernet_ports or admin_state
+                    val lanPortStatus = onuDetailsData?.ethernetPorts?.firstOrNull()?.adminState
+                        ?: onuDetailsData?.ethernetPorts?.firstOrNull()?.admin_state
+
+                    // Extract WiFi status from wifi_ports or admin_state
+                    val wifiPortStatus = onuDetailsData?.wifiPorts?.firstOrNull()?.adminState
+                        ?: onuDetailsData?.wifiPorts?.firstOrNull()?.admin_state
+
+                    // Use administrative_status for ONU device status
+                    val onuAdminStatus = onuDetailsData?.administrativeStatus
+
+                    onuStatus = onuAdminStatus
+                    wiFiAdministrativeStatus = wifiPortStatus ?: "Unknown"
+                    lanAdministrativeStatus = lanPortStatus ?: "Unknown"
+
+                    AppLogger.logInfo("RouterScreen: ONU details fetched",
+                        mapOf(
+                            "onu" to (onuAdminStatus ?: "unknown"),
+                            "wifi" to (wifiPortStatus ?: "unknown"),
+                            "lan" to (lanPortStatus ?: "unknown")
+                        ) as Map<String, String>
+                    )
+                } else {
+                    AppLogger.logError("RouterScreen: Failed to fetch ONU details", Exception("HTTP ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                AppLogger.logError("RouterScreen: Error fetching ONU details", e)
+            }
+        }
+    }
+
     fun refetchOnuList() {
         scope.launch {
             val result = onuRepository.fetchAllOnusByUsername(username)
@@ -280,6 +326,11 @@ fun RouterScreen(
                 AppLogger.logError("RouterScreen: Refetch failed", exception)
                 isEnablingDisabling = false
             }
+        }
+        // Refetch ONU details with all status information after list refresh with delay
+        scope.launch {
+            kotlinx.coroutines.delay(500)
+            fetchOnuDetailsWithStatus()
         }
     }
 
@@ -355,63 +406,10 @@ fun RouterScreen(
         }
     }
 
-    fun fetchWiFiAdministrativeStatus() {
-        if (onuList.isEmpty()) return
-
-        scope.launch {
-            try {
-                isLoadingWiFiStatus = true
-                val selectedOnu = onuList[selectedOnuIndex]
-
-                val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
-                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                    apiKey = SmartOltConfig.API_KEY
-                )
-
-                if (response.isSuccessful) {
-                    wiFiAdministrativeStatus = response.body()?.administrativeStatus
-                } else {
-                    AppLogger.logError("RouterScreen: Failed to fetch WiFi status", Exception("HTTP ${response.code()}"))
-                }
-            } catch (e: Exception) {
-                AppLogger.logError("RouterScreen: Error fetching WiFi status", e)
-            } finally {
-                isLoadingWiFiStatus = false
-            }
-        }
-    }
-
-    fun fetchLanAdministrativeStatus() {
-        if (onuList.isEmpty()) return
-
-        scope.launch {
-            try {
-                isLoadingLanStatus = true
-                val selectedOnu = onuList[selectedOnuIndex]
-
-                val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
-                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                    apiKey = SmartOltConfig.API_KEY
-                )
-
-                if (response.isSuccessful) {
-                    lanAdministrativeStatus = response.body()?.administrativeStatus
-                } else {
-                    AppLogger.logError("RouterScreen: Failed to fetch LAN status", Exception("HTTP ${response.code()}"))
-                }
-            } catch (e: Exception) {
-                AppLogger.logError("RouterScreen: Error fetching LAN status", e)
-            } finally {
-                isLoadingLanStatus = false
-            }
-        }
-    }
-
-    // Fetch WiFi and LAN administrative status when ONU changes
+    // Fetch ONU details with WiFi and LAN port status when ONU changes
     LaunchedEffect(selectedOnuIndex, onuList) {
         if (onuList.isEmpty()) return@LaunchedEffect
-        fetchWiFiAdministrativeStatus()
-        fetchLanAdministrativeStatus()
+        fetchOnuDetailsWithStatus()
     }
 
     val selectedOnu = if (onuList.isNotEmpty()) onuList[selectedOnuIndex] else null
@@ -683,7 +681,6 @@ fun RouterScreen(
                                     status = wiFiAdministrativeStatus ?: "Unknown",
                                     isActive = wiFiAdministrativeStatus?.lowercase() == "enabled",
                                     icon = Icons.Default.Wifi,
-                                    isLoading = isLoadingWiFiStatus,
                                     onClick = {
                                         showWiFiActionsDialog = true
                                     }
@@ -696,7 +693,6 @@ fun RouterScreen(
                                     status = lanAdministrativeStatus ?: "Unknown",
                                     isActive = lanAdministrativeStatus?.lowercase() == "enabled",
                                     icon = Icons.Default.Language,
-                                    isLoading = isLoadingLanStatus,
                                     onClick = {
                                         showLanActionsDialog = true
                                     }
@@ -876,14 +872,13 @@ fun RouterScreen(
         showDialog = showWiFiConfirmDialog,
         onDismiss = { showWiFiConfirmDialog = false },
         isEnable = wiFiStatusDialogType == "enable",
-        isLoading = isLoadingWiFiStatus,
+        isLoading = false,
         snackbarHostState = snackbarHostState,
         scope = scope,
         onuList = onuList,
         selectedOnuIndex = selectedOnuIndex,
-        onFetchWiFiStatus = { fetchWiFiAdministrativeStatus() },
+        onFetchWiFiStatus = { fetchOnuDetailsWithStatus() },
         onConfirm = {
-            isLoadingWiFiStatus = true
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
@@ -909,7 +904,7 @@ fun RouterScreen(
                         )
                         showWiFiConfirmDialog = false
                         kotlinx.coroutines.delay(500)
-                        fetchWiFiAdministrativeStatus()
+                        fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(
                             message = "Error: ${error.message}",
@@ -921,8 +916,6 @@ fun RouterScreen(
                         message = "Error: ${e.message}",
                         duration = SnackbarDuration.Short
                     )
-                } finally {
-                    isLoadingWiFiStatus = false
                 }
             }
         }
@@ -949,14 +942,13 @@ fun RouterScreen(
         showDialog = showLanConfirmDialog,
         onDismiss = { showLanConfirmDialog = false },
         isEnable = lanStatusDialogType == "enable",
-        isLoading = isLoadingLanStatus,
+        isLoading = false,
         snackbarHostState = snackbarHostState,
         scope = scope,
         onuList = onuList,
         selectedOnuIndex = selectedOnuIndex,
-        onFetchLanStatus = { fetchLanAdministrativeStatus() },
+        onFetchLanStatus = { fetchOnuDetailsWithStatus() },
         onConfirm = {
-            isLoadingLanStatus = true
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
@@ -979,7 +971,7 @@ fun RouterScreen(
                         )
                         showLanConfirmDialog = false
                         kotlinx.coroutines.delay(500)
-                        fetchLanAdministrativeStatus()
+                        fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(
                             message = "Error: ${error.message}",
@@ -991,8 +983,6 @@ fun RouterScreen(
                         message = "Error: ${e.message}",
                         duration = SnackbarDuration.Short
                     )
-                } finally {
-                    isLoadingLanStatus = false
                 }
             }
         }

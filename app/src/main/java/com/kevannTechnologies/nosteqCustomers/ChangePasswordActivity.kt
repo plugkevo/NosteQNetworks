@@ -11,6 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import com.kevannTechnologies.nosteqCustomers.models.ChangePasswordRequest
 import com.kevannTechnologies.nosteqCustomers.models.ChangePasswordResponse
 import com.kevannTechnologies.nosteqCustomers.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
@@ -54,8 +55,18 @@ class ChangePasswordActivity : ComponentActivity() {
                         isLoading = true
                         errorMessage = null
 
-                        // Call your backend API to change password (don't touch the API)
-                        ApiClient.instance.changePassword(username, newPassword).enqueue(
+                        // Get token from preferences for Bearer authentication
+                        val token = "Bearer ${preferencesManager.getToken()}"
+
+                        // Create request with all required fields
+                        val request = ChangePasswordRequest(
+                            currentPassword = currentPassword,
+                            newPassword = newPassword,
+                            confirmPassword = newPassword
+                        )
+
+                        // Call your backend API to change password using the correct endpoint
+                        ApiClient.instance.changePassword(token, request).enqueue(
                             object : Callback<ChangePasswordResponse> {
                                 override fun onResponse(
                                     call: Call<ChangePasswordResponse>,
@@ -63,7 +74,7 @@ class ChangePasswordActivity : ComponentActivity() {
                                 ) {
                                     isLoading = false
 
-                                    if (response.isSuccessful && response.body()?.status == true) {
+                                    if (response.isSuccessful && response.body() != null) {
                                         // Mark password as changed in Firestore
                                         lifecycleScope.launch {
                                             PasswordSecurityManager.markPasswordAsChanged(userId)
@@ -72,7 +83,7 @@ class ChangePasswordActivity : ComponentActivity() {
                                         }
                                     } else {
                                         errorMessage = response.body()?.message
-                                            ?: "Failed to change password"
+                                            ?: "Failed to change password. Please check your current password."
                                     }
                                 }
 

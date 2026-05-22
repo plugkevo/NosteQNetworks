@@ -34,8 +34,7 @@ fun ChangePasswordScreen(
     username: String,
     isLoading: Boolean,
     errorMessage: String?,
-    onPasswordChange: (newPassword: String) -> Unit,
-    onSkip: () -> Unit = {}
+    onPasswordChange: (currentPassword: String, newPassword: String) -> Unit
 ) {
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
@@ -76,7 +75,7 @@ fun ChangePasswordScreen(
             newPassword != confirmPassword -> validationError = "Passwords do not match"
             newPassword == currentPassword -> validationError = "New password must be different from current password"
             !validatePasswordStrength(newPassword).first -> validationError = validatePasswordStrength(newPassword).second
-            else -> onPasswordChange(newPassword)
+            else -> onPasswordChange(currentPassword, newPassword)
         }
     }
 
@@ -131,51 +130,49 @@ fun ChangePasswordScreen(
                     .widthIn(max = 400.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Current Password Field (hide on first login)
-                if (!isFirstLogin) {
-                    OutlinedTextField(
-                        value = currentPassword,
-                        onValueChange = { currentPassword = it },
-                        label = { Text("Current Password", color = Color.White.copy(alpha = 0.7f)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading,
-                        visualTransformation = if (currentPasswordVisible)
-                            VisualTransformation.None
-                        else
-                            PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password,
-                            imeAction = ImeAction.Next
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Down) }
-                        ),
-                        trailingIcon = {
-                            IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
-                                Icon(
-                                    imageVector = if (currentPasswordVisible)
-                                        Icons.Filled.Visibility
-                                    else
-                                        Icons.Filled.VisibilityOff,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.7f)
-                                )
-                            }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color.White,
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                            focusedLabelColor = Color.White,
-                            unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
-                            cursorColor = Color.White
-                        )
+                // Current Password Field
+                OutlinedTextField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it },
+                    label = { Text("Current Password", color = Color.White.copy(alpha = 0.7f)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading,
+                    visualTransformation = if (currentPasswordVisible)
+                        VisualTransformation.None
+                    else
+                        PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                    ),
+                    trailingIcon = {
+                        IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
+                            Icon(
+                                imageVector = if (currentPasswordVisible)
+                                    Icons.Filled.Visibility
+                                else
+                                    Icons.Filled.VisibilityOff,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.7f)
+                            )
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color.White,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                        focusedLabelColor = Color.White,
+                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                        cursorColor = Color.White
                     )
+                )
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // New Password Field
                 OutlinedTextField(
@@ -328,21 +325,6 @@ fun ChangePasswordScreen(
                                 fontWeight = FontWeight.Bold
                             ),
                             color = Color(0xFF1A237E)
-                        )
-                    }
-                }
-
-                // Skip Button (only on first login)
-                if (isFirstLogin) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    TextButton(
-                        onClick = onSkip,
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading
-                    ) {
-                        Text(
-                            text = "Skip for now",
-                            color = Color.White.copy(alpha = 0.7f)
                         )
                     }
                 }

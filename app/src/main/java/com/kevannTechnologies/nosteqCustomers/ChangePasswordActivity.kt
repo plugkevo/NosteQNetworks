@@ -41,9 +41,13 @@ class ChangePasswordActivity : ComponentActivity() {
                     var isLoading by remember { mutableStateOf(false) }
                     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-                    fun performPasswordChange(newPassword: String) {
+                    fun performPasswordChange(currentPassword: String, newPassword: String) {
+                        if (currentPassword.isBlank()) {
+                            errorMessage = "Current password is required"
+                            return
+                        }
                         if (newPassword.isBlank()) {
-                            errorMessage = "Password cannot be empty"
+                            errorMessage = "New password cannot be empty"
                             return
                         }
 
@@ -99,10 +103,9 @@ class ChangePasswordActivity : ComponentActivity() {
                         username = username,
                         isLoading = isLoading,
                         errorMessage = errorMessage,
-                        onPasswordChange = { newPassword ->
-                            performPasswordChange(newPassword)
-                        },
-                        onSkip = { skipPasswordChange() }
+                        onPasswordChange = { currentPassword, newPassword ->
+                            performPasswordChange(currentPassword, newPassword)
+                        }
                     )
                 }
             }

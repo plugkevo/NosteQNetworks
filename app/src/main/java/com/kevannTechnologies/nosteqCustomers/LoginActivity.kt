@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import com.kevannTechnologies.nosteqCustomers.models.LoginResponse
 import com.kevannTechnologies.nosteqCustomers.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
+import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -58,16 +60,33 @@ class LoginActivity : ComponentActivity() {
 
                                 if (response.isSuccessful && response.body() != null) {
                                     val loginData = response.body()!!.data
+                                    val userId = loginData.user.id
 
                                     preferencesManager.saveLoginData(
                                         token = loginData.token,
-                                        userId = loginData.user.id,
+                                        userId = userId,
                                         username = loginData.user.username,
                                         ispName = loginData.ispDetail.isp_name,
                                         ispCurrency = loginData.ispDetail.isp_currency
                                     )
 
-                                    navigateToMain()
+                                    // Create/update user profile in Firestore
+                                    lifecycleScope.launch {
+                                        PasswordSecurityManager.createOrUpdateUserProfile(
+                                            userId = userId,
+                                            username = username,
+                                            phoneNumber = username  // Phone number is used as username
+                                        )
+
+                                        // Check if password needs to be changed
+                                        val shouldChangePassword = PasswordSecurityManager.shouldForcePasswordChange(userId)
+                                        
+                                        if (shouldChangePassword) {
+                                            navigateToChangePassword(userId, username, isFirstLogin = true)
+                                        } else {
+                                            navigateToMain()
+                                        }
+                                    }
                                 } else {
                                     errorMessage = "Invalid username or password"
                                 }
@@ -128,6 +147,16 @@ class LoginActivity : ComponentActivity() {
 
     private fun navigateToMain() {
         val intent = Intent(this@LoginActivity, MainActivity::class.java)
+        startActivity(intent)
+        finish()
+    }
+
+    private fun navigateToChangePassword(userId: String, username: String, isFirstLogin: Boolean) {
+        val intent = Intent(this@LoginActivity, ChangePasswordActivity::class.java).apply {
+            putExtra("userId", userId)
+            putExtra("username", username)
+            putExtra("isFirstLogin", isFirstLogin)
+        }
         startActivity(intent)
         finish()
     }

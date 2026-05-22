@@ -42,13 +42,14 @@ interface ApiService {
         @Header("Authorization") token: String
     ): Call<DashboardResponse>
 
-    @POST("api/password")
+    @FormUrlEncoded
+    @POST("api/change-password")
     fun changePassword(
-        @Header("Authorization") token: String,
-        @Body request: ChangePasswordRequest
+        @Field("username") username: String,
+        @Field("password") newPassword: String
     ): Call<ChangePasswordResponse>
 
-    @GET("api/invoice")
+    @FormUrlEncoded
     fun getInvoices(
         @Header("Authorization") token: String,
         @Query("from") fromDate: String,

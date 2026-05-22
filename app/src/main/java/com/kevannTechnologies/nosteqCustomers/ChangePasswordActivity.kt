@@ -11,7 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
-import com.kevannTechnologies.nosteqCustomers.models.LoginResponse
+import com.kevannTechnologies.nosteqCustomers.models.ChangePasswordResponse
 import com.kevannTechnologies.nosteqCustomers.ui.theme.NosteqTheme
 import com.nosteq.provider.utils.PreferencesManager
 import kotlinx.coroutines.launch
@@ -116,9 +116,3 @@ class ChangePasswordActivity : ComponentActivity() {
         finish()
     }
 }
-
-// Response model for password change (add to your models)
-data class ChangePasswordResponse(
-    val status: Boolean,
-    val message: String
-)

@@ -7,6 +7,7 @@ data class ChangePasswordRequest(
 )
 
 data class ChangePasswordResponse(
+    val status: Boolean = true,
     val message: String
 )
 

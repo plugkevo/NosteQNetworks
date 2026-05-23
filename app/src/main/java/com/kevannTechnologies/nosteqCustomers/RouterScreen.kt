@@ -932,7 +932,7 @@ fun RouterScreen(
     OnuActionsDialog(
         showDialog = showOnuActionsDialog,
         onDismiss = { showOnuActionsDialog = false },
-        onuStatus = onuStatus,
+        onuStatus = onuAdministrativeStatus,
         onEnableClick = {
             onuStatusDialogType = "enable"
             showOnuActionsDialog = false

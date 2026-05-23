@@ -52,6 +52,7 @@ fun RouterScreen(
     var onuAdministrativeStatus by remember { mutableStateOf<String?>(null) }
     var currentOnuDetails by remember { mutableStateOf<OnuDetails?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
     var showWiFiDialog by remember { mutableStateOf(false) }
@@ -271,34 +272,23 @@ fun RouterScreen(
 
 
     fun fetchOnuDetailsWithStatus() {
-        println("[v0] fetchOnuDetailsWithStatus called!")
+        isRefreshing = true
         if (onuList.isEmpty()) {
-            println("[v0] ONU list is empty, returning")
+            isRefreshing = false
             return
         }
 
         scope.launch {
             try {
-                println("[v0] Starting ONU details fetch")
                 val selectedOnu = onuList[selectedOnuIndex]
-                println("[v0] Selected ONU: ${selectedOnu.uniqueExternalId}")
                 val response = SmartOltClient.apiService.getOnuDetails(
                     onuExternalId = selectedOnu.uniqueExternalId ?: "",
                     apiKey = SmartOltConfig.API_KEY
                 )
 
-                println("[v0] API call completed, response code: ${response.code()}")
-                println("[v0] Response successful: ${response.isSuccessful}")
-                println("[v0] Response body raw: ${response.body()}")
-                println("[v0] Response error body: ${response.errorBody()?.string()}")
-                
                 if (response.isSuccessful && response.body()?.status == true) {
                     val onuDetailsData = response.body()?.onuDetails
                     currentOnuDetails = onuDetailsData
-                    
-                    println("[v0] ONU Details Response: $onuDetailsData")
-                    println("[v0] Ethernet Ports: ${onuDetailsData?.ethernetPorts}")
-                    println("[v0] WiFi Ports: ${onuDetailsData?.wifiPorts}")
                     
                     // Extract LAN status from ethernet_ports
                     val lanPortStatus = onuDetailsData?.ethernetPorts?.firstOrNull()?.adminState
@@ -308,10 +298,6 @@ fun RouterScreen(
                     
                     // Use administrative_status for ONU device status
                     val onuAdminStatus = onuDetailsData?.administrativeStatus
-
-                    println("[v0] LAN Status extracted: $lanPortStatus")
-                    println("[v0] WiFi Status extracted: $wifiPortStatus")
-                    println("[v0] ONU Admin Status extracted: $onuAdminStatus")
 
                     onuAdministrativeStatus = onuAdminStatus
                     wiFiAdministrativeStatus = wifiPortStatus ?: "Unknown"
@@ -325,14 +311,12 @@ fun RouterScreen(
                         ) as Map<String, String>
                     )
                 } else {
-                    println("[v0] API Response unsuccessful or status is false. Status: ${response.body()?.status}")
-                    println("[v0] Response code: ${response.code()}")
                     AppLogger.logError("RouterScreen: Failed to fetch ONU details", Exception("HTTP ${response.code()}"))
                 }
+                isRefreshing = false
             } catch (e: Exception) {
-                println("[v0] Exception in fetchOnuDetailsWithStatus: ${e.message}")
-                e.printStackTrace()
                 AppLogger.logError("RouterScreen: Error fetching ONU details", e)
+                isRefreshing = false
             }
         }
     }
@@ -673,11 +657,41 @@ fun RouterScreen(
                         if (onuList.isNotEmpty()) {
                             val isOnuOnline = onuStatus == "Online"
 
-                            Text(
-                                text = "Quick Actions",
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
+                            // Refresh Status Button
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Quick Actions",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                                Button(
+                                    onClick = { fetchOnuDetailsWithStatus() },
+                                    enabled = !isRefreshing,
+                                    modifier = Modifier.height(32.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                                ) {
+                                    if (isRefreshing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = "Refresh status",
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Refresh", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -925,7 +939,6 @@ fun RouterScreen(
                             duration = SnackbarDuration.Short
                         )
                         showWiFiConfirmDialog = false
-                        kotlinx.coroutines.delay(500)
                         fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(
@@ -992,7 +1005,6 @@ fun RouterScreen(
                             duration = SnackbarDuration.Short
                         )
                         showLanConfirmDialog = false
-                        kotlinx.coroutines.delay(500)
                         fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(

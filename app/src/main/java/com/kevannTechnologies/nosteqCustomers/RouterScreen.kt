@@ -49,6 +49,7 @@ fun RouterScreen(
     var onuList by remember { mutableStateOf<List<OnuDetails>>(emptyList()) }
     var selectedOnuIndex by remember { mutableStateOf(0) }
     var onuStatus by remember { mutableStateOf<String?>(null) }
+    var onuAdministrativeStatus by remember { mutableStateOf<String?>(null) }
     var currentOnuDetails by remember { mutableStateOf<OnuDetails?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -312,7 +313,7 @@ fun RouterScreen(
                     println("[v0] WiFi Status extracted: $wifiPortStatus")
                     println("[v0] ONU Admin Status extracted: $onuAdminStatus")
 
-                    onuStatus = onuAdminStatus
+                    onuAdministrativeStatus = onuAdminStatus
                     wiFiAdministrativeStatus = wifiPortStatus ?: "Unknown"
                     lanAdministrativeStatus = lanPortStatus ?: "Unknown"
 

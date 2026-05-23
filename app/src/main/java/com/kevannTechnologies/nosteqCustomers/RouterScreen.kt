@@ -95,21 +95,26 @@ fun RouterScreen(
             val result = onuRepository.fetchAllOnusByUsername(username)
             result.onSuccess { onus ->
                 onuList = onus
-                selectedOnuIndex = 0
+                // If the current selected ONU no longer exists, reset to the first one
+                if (selectedOnuIndex >= onus.size) {
+                    selectedOnuIndex = 0
+                }
                 if (onus.isNotEmpty()) {
                     preferencesManager.saveOnuExternalId(onus[0].uniqueExternalId)
                 }
                 isLoading = false
+                AppLogger.logInfo("RouterScreen: ONU list loaded with ${onus.size} devices")
             }.onFailure { exception ->
                 errorMessage = exception.message ?: "Error loading device information. Please try again"
                 isLoading = false
+                AppLogger.logError("RouterScreen: Failed to load ONU list", exception)
             }
         }
     }
 
     // Fetch ONU status for the selected ONU
     LaunchedEffect(selectedOnuIndex, onuList) {
-        if (onuList.isEmpty()) {
+        if (onuList.isEmpty() || selectedOnuIndex >= onuList.size) {
             isLoading = false
             return@LaunchedEffect
         }
@@ -134,7 +139,7 @@ fun RouterScreen(
 
     // Fetch data usage for selected ONU
     LaunchedEffect(selectedOnuIndex, onuList) {
-        if (onuList.isEmpty()) return@LaunchedEffect
+        if (onuList.isEmpty() || selectedOnuIndex >= onuList.size) return@LaunchedEffect
 
         val selectedOnu = onuList[selectedOnuIndex]
         android.util.Log.d("RouterScreen", "[v0] Fetching ONU details for: ${selectedOnu.name}")
@@ -177,7 +182,7 @@ fun RouterScreen(
 
     // Fetch traffic graph when graph type or ONU changes
     LaunchedEffect(selectedGraphType, selectedOnuIndex, onuList) {
-        if (onuList.isEmpty()) return@LaunchedEffect
+        if (onuList.isEmpty() || selectedOnuIndex >= onuList.size) return@LaunchedEffect
 
         val selectedOnu = onuList[selectedOnuIndex]
         if (selectedOnu.uniqueExternalId.isNullOrBlank()) {
@@ -440,7 +445,7 @@ fun RouterScreen(
 
     // Fetch ONU details with WiFi and LAN port status when ONU changes
     LaunchedEffect(selectedOnuIndex, onuList) {
-        if (onuList.isEmpty()) return@LaunchedEffect
+        if (onuList.isEmpty() || selectedOnuIndex >= onuList.size) return@LaunchedEffect
         fetchOnuDetailsWithStatus()
     }
 

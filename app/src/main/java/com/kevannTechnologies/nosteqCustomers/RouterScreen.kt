@@ -310,6 +310,7 @@ fun RouterScreen(
 
                     println("[v0] LAN Status extracted: $lanPortStatus")
                     println("[v0] WiFi Status extracted: $wifiPortStatus")
+                    println("[v0] ONU Admin Status extracted: $onuAdminStatus")
 
                     onuStatus = onuAdminStatus
                     wiFiAdministrativeStatus = wifiPortStatus ?: "Unknown"

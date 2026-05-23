@@ -558,6 +558,18 @@ fun RouterScreen(
                                     Text("Offline", color = Color.White)
                                 }
                             }
+                            
+                            // Administrative Status Badge
+                            val adminStatusColor = when {
+                                onuAdministrativeStatus?.lowercase() == "enabled" -> Color(0xFF2196F3)
+                                onuAdministrativeStatus?.lowercase() == "disabled" -> Color(0xFFFF9800)
+                                else -> Color(0xFF9E9E9E)
+                            }
+                            Badge(
+                                containerColor = adminStatusColor
+                            ) {
+                                Text(onuAdministrativeStatus ?: "Unknown", color = Color.White)
+                            }
                         }
 
                         Divider()
@@ -601,29 +613,60 @@ fun RouterScreen(
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
                             }
                         } else {
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .background(
-                                        color = if (onuStatus == "Online") Color(0x1F4CAF50) else Color(0x1FB71C1C),
+                                        color = Color(0x1F9C27B0),
                                         shape = RoundedCornerShape(8.dp)
                                     )
                                     .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column {
-                                    Text(
-                                        text = "Router Status",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = onuStatus ?: "Unknown",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (onuStatus == "Online") Color(0xFF4CAF50) else Color(0xFFB71C1C),
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                // Online/Offline Status
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Connection Status",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = onuStatus ?: "Unknown",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (onuStatus == "Online") Color(0xFF4CAF50) else Color(0xFFB71C1C),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                
+                                // Administrative Status
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Device Status",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = onuAdministrativeStatus ?: "Unknown",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = when {
+                                                onuAdministrativeStatus?.lowercase() == "enabled" -> Color(0xFF2196F3)
+                                                onuAdministrativeStatus?.lowercase() == "disabled" -> Color(0xFFFF9800)
+                                                else -> Color(0xFF9E9E9E)
+                                            },
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                         }

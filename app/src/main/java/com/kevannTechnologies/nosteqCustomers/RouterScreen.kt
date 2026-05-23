@@ -930,37 +930,32 @@ fun RouterScreen(
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
-                    // Enable/disable all WiFi ports (1-8)
-                    for (portNum in 1..8) {
-                        val result = if (wiFiStatusDialogType == "enable") {
-                            WiFiPortManager.enableWiFi(
-                                onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                                wifiPort = "wifi_0/$portNum",
-                                ssid = "NosteqWiFi",
-                                password = "default123",
-                                authMode = "WPA2"
-                            )
-                        } else {
-                            WiFiPortManager.disableWiFi(
-                                onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                                wifiPort = "wifi_0/$portNum"
-                            )
-                        }
-
-                        result.onFailure { error ->
-                            snackbarHostState.showSnackbar(
-                                message = "Error on WiFi port $portNum: ${error.message}",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
+                    val result = if (wiFiStatusDialogType == "enable") {
+                        WiFiPortManager.enableAllWiFiPorts(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                            ssid = "NosteqWiFi",
+                            password = "default123",
+                            authMode = "WPA2"
+                        )
+                    } else {
+                        WiFiPortManager.disableAllWiFiPorts(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: ""
+                        )
                     }
 
-                    snackbarHostState.showSnackbar(
-                        message = if (wiFiStatusDialogType == "enable") "WiFi ports 1-8 enabled" else "WiFi ports 1-8 disabled",
-                        duration = SnackbarDuration.Short
-                    )
-                    showWiFiConfirmDialog = false
-                    fetchOnuDetailsWithStatus()
+                    result.onSuccess { message ->
+                        snackbarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Short
+                        )
+                        showWiFiConfirmDialog = false
+                        fetchOnuDetailsWithStatus()
+                    }.onFailure { error ->
+                        snackbarHostState.showSnackbar(
+                            message = "Error: ${error.message}",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                 } catch (e: Exception) {
                     snackbarHostState.showSnackbar(
                         message = "Error: ${e.message}",
@@ -1002,34 +997,29 @@ fun RouterScreen(
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
-                    // Enable/disable all LAN ports (1-4)
-                    for (portNum in 1..4) {
-                        val result = if (lanStatusDialogType == "enable") {
-                            LANManager.enableLan(
-                                onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                                ethernetPort = "eth_0/$portNum"
-                            )
-                        } else {
-                            LANManager.disableLan(
-                                onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                                ethernetPort = "eth_0/$portNum"
-                            )
-                        }
-
-                        result.onFailure { error ->
-                            snackbarHostState.showSnackbar(
-                                message = "Error on LAN port $portNum: ${error.message}",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
+                    val result = if (lanStatusDialogType == "enable") {
+                        LANManager.enableAllLanPorts(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: ""
+                        )
+                    } else {
+                        LANManager.disableAllLanPorts(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: ""
+                        )
                     }
 
-                    snackbarHostState.showSnackbar(
-                        message = if (lanStatusDialogType == "enable") "LAN ports 1-4 enabled" else "LAN ports 1-4 disabled",
-                        duration = SnackbarDuration.Short
-                    )
-                    showLanConfirmDialog = false
-                    fetchOnuDetailsWithStatus()
+                    result.onSuccess { message ->
+                        snackbarHostState.showSnackbar(
+                            message = message,
+                            duration = SnackbarDuration.Short
+                        )
+                        showLanConfirmDialog = false
+                        fetchOnuDetailsWithStatus()
+                    }.onFailure { error ->
+                        snackbarHostState.showSnackbar(
+                            message = "Error: ${error.message}",
+                            duration = SnackbarDuration.Short
+                        )
+                    }
                 } catch (e: Exception) {
                     snackbarHostState.showSnackbar(
                         message = "Error: ${e.message}",

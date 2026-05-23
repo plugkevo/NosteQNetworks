@@ -30,6 +30,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.autofill.inline.UiThreadExecutor
 
 @Composable
 fun SupportDialog(
@@ -191,7 +192,12 @@ fun LoginScreen(
                     onValueChange = onUsernameChange,
                     label = { Text("Username", color = Color.White.copy(alpha = 0.7f)) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .autofill(
+                            autofillTypes = listOf(AutofillType.Username),
+                            onFill = onUsernameChange
+                        ),
                     enabled = !isLoading,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Text,
@@ -219,7 +225,12 @@ fun LoginScreen(
                     onValueChange = onPasswordChange,
                     label = { Text("Password", color = Color.White.copy(alpha = 0.7f)) },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .autofill(
+                            autofillTypes = listOf(AutofillType.Password),
+                            onFill = onPasswordChange
+                        ),
                     enabled = !isLoading,
                     visualTransformation = if (passwordVisible)
                         VisualTransformation.None

@@ -36,7 +36,7 @@ fun OnuActionsDialog(
     onDisableClick: () -> Unit
 ) {
     if (showDialog) {
-        val isOnuOnline = onuStatus == "Online"
+        val isOnuEnabled = onuStatus?.lowercase() == "enabled"
 
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -53,7 +53,7 @@ fun OnuActionsDialog(
                         Button(
                             onClick = onEnableClick,
                             modifier = Modifier.weight(1f),
-                            enabled = !isOnuOnline,
+                            enabled = !isOnuEnabled,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF4CAF50),
                                 disabledContainerColor = Color(0xFF4CAF50).copy(alpha = 0.5f)
@@ -67,7 +67,7 @@ fun OnuActionsDialog(
                         Button(
                             onClick = onDisableClick,
                             modifier = Modifier.weight(1f),
-                            enabled = isOnuOnline,
+                            enabled = isOnuEnabled,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFFB71C1C),
                                 disabledContainerColor = Color(0xFFB71C1C).copy(alpha = 0.5f)

@@ -49,8 +49,10 @@ fun RouterScreen(
     var onuList by remember { mutableStateOf<List<OnuDetails>>(emptyList()) }
     var selectedOnuIndex by remember { mutableStateOf(0) }
     var onuStatus by remember { mutableStateOf<String?>(null) }
+    var onuAdministrativeStatus by remember { mutableStateOf<String?>(null) }
     var currentOnuDetails by remember { mutableStateOf<OnuDetails?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showRebootDialog by remember { mutableStateOf(false) }
     var showWiFiDialog by remember { mutableStateOf(false) }
@@ -93,21 +95,26 @@ fun RouterScreen(
             val result = onuRepository.fetchAllOnusByUsername(username)
             result.onSuccess { onus ->
                 onuList = onus
-                selectedOnuIndex = 0
+                // If the current selected ONU no longer exists, reset to the first one
+                if (selectedOnuIndex >= onus.size) {
+                    selectedOnuIndex = 0
+                }
                 if (onus.isNotEmpty()) {
                     preferencesManager.saveOnuExternalId(onus[0].uniqueExternalId)
                 }
                 isLoading = false
+                AppLogger.logInfo("RouterScreen: ONU list loaded with ${onus.size} devices")
             }.onFailure { exception ->
                 errorMessage = exception.message ?: "Error loading device information. Please try again"
                 isLoading = false
+                AppLogger.logError("RouterScreen: Failed to load ONU list", exception)
             }
         }
     }
 
     // Fetch ONU status for the selected ONU
     LaunchedEffect(selectedOnuIndex, onuList) {
-        if (onuList.isEmpty()) {
+        if (onuList.isEmpty() || selectedOnuIndex >= onuList.size) {
             isLoading = false
             return@LaunchedEffect
         }
@@ -132,7 +139,7 @@ fun RouterScreen(
 
     // Fetch data usage for selected ONU
     LaunchedEffect(selectedOnuIndex, onuList) {
-        if (onuList.isEmpty()) return@LaunchedEffect
+        if (onuList.isEmpty() || selectedOnuIndex >= onuList.size) return@LaunchedEffect
 
         val selectedOnu = onuList[selectedOnuIndex]
         android.util.Log.d("RouterScreen", "[v0] Fetching ONU details for: ${selectedOnu.name}")
@@ -175,7 +182,7 @@ fun RouterScreen(
 
     // Fetch traffic graph when graph type or ONU changes
     LaunchedEffect(selectedGraphType, selectedOnuIndex, onuList) {
-        if (onuList.isEmpty()) return@LaunchedEffect
+        if (onuList.isEmpty() || selectedOnuIndex >= onuList.size) return@LaunchedEffect
 
         val selectedOnu = onuList[selectedOnuIndex]
         if (selectedOnu.uniqueExternalId.isNullOrBlank()) {
@@ -269,8 +276,38 @@ fun RouterScreen(
     }
 
 
-    fun fetchOnuDetailsWithStatus() {
+    fun fetchOnuAdministrativeStatus() {
         if (onuList.isEmpty()) return
+
+        scope.launch {
+            try {
+                val selectedOnu = onuList[selectedOnuIndex]
+                val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                if (response.isSuccessful && response.body()?.status == true) {
+                    val adminStatus = response.body()?.administrativeStatus
+                    onuAdministrativeStatus = adminStatus
+                    AppLogger.logInfo("RouterScreen: Administrative status fetched",
+                        mapOf("status" to (adminStatus ?: "unknown")) as Map<String, String>
+                    )
+                } else {
+                    AppLogger.logError("RouterScreen: Failed to fetch administrative status", Exception("HTTP ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                AppLogger.logError("RouterScreen: Error fetching administrative status", e)
+            }
+        }
+    }
+
+    fun fetchOnuDetailsWithStatus() {
+        isRefreshing = true
+        if (onuList.isEmpty()) {
+            isRefreshing = false
+            return
+        }
 
         scope.launch {
             try {
@@ -284,33 +321,31 @@ fun RouterScreen(
                     val onuDetailsData = response.body()?.onuDetails
                     currentOnuDetails = onuDetailsData
 
-                    // Extract LAN status from ethernet_ports or admin_state
+                    // Extract LAN status from ethernet_ports
                     val lanPortStatus = onuDetailsData?.ethernetPorts?.firstOrNull()?.adminState
-                        ?: onuDetailsData?.ethernetPorts?.firstOrNull()?.admin_state
 
-                    // Extract WiFi status from wifi_ports or admin_state
+                    // Extract WiFi status from wifi_ports
                     val wifiPortStatus = onuDetailsData?.wifiPorts?.firstOrNull()?.adminState
-                        ?: onuDetailsData?.wifiPorts?.firstOrNull()?.admin_state
 
-                    // Use administrative_status for ONU device status
-                    val onuAdminStatus = onuDetailsData?.administrativeStatus
-
-                    onuStatus = onuAdminStatus
                     wiFiAdministrativeStatus = wifiPortStatus ?: "Unknown"
                     lanAdministrativeStatus = lanPortStatus ?: "Unknown"
 
                     AppLogger.logInfo("RouterScreen: ONU details fetched",
                         mapOf(
-                            "onu" to (onuAdminStatus ?: "unknown"),
                             "wifi" to (wifiPortStatus ?: "unknown"),
                             "lan" to (lanPortStatus ?: "unknown")
                         ) as Map<String, String>
                     )
+
+                    // Fetch administrative status separately
+                    fetchOnuAdministrativeStatus()
                 } else {
                     AppLogger.logError("RouterScreen: Failed to fetch ONU details", Exception("HTTP ${response.code()}"))
                 }
+                isRefreshing = false
             } catch (e: Exception) {
                 AppLogger.logError("RouterScreen: Error fetching ONU details", e)
+                isRefreshing = false
             }
         }
     }
@@ -351,8 +386,9 @@ fun RouterScreen(
                         duration = SnackbarDuration.Short
                     )
                     showOnuConfirmDialog = false
-                    kotlinx.coroutines.delay(500)
                     refetchOnuList()
+                    // Immediately fetch administrative status
+                    fetchOnuAdministrativeStatus()
                 }.onFailure { error ->
                     snackbarHostState.showSnackbar(
                         message = "Error: ${error.message}",
@@ -387,8 +423,9 @@ fun RouterScreen(
                         duration = SnackbarDuration.Short
                     )
                     showOnuConfirmDialog = false
-                    kotlinx.coroutines.delay(500)
                     refetchOnuList()
+                    // Immediately fetch administrative status
+                    fetchOnuAdministrativeStatus()
                 }.onFailure { error ->
                     snackbarHostState.showSnackbar(
                         message = "Error: ${error.message}",
@@ -408,7 +445,7 @@ fun RouterScreen(
 
     // Fetch ONU details with WiFi and LAN port status when ONU changes
     LaunchedEffect(selectedOnuIndex, onuList) {
-        if (onuList.isEmpty()) return@LaunchedEffect
+        if (onuList.isEmpty() || selectedOnuIndex >= onuList.size) return@LaunchedEffect
         fetchOnuDetailsWithStatus()
     }
 
@@ -528,6 +565,18 @@ fun RouterScreen(
                                     Text("Offline", color = Color.White)
                                 }
                             }
+
+                            // Administrative Status Badge
+                            val adminStatusColor = when {
+                                onuAdministrativeStatus?.lowercase() == "enabled" -> Color(0xFF2196F3)
+                                onuAdministrativeStatus?.lowercase() == "disabled" -> Color(0xFFFF9800)
+                                else -> Color(0xFF9E9E9E)
+                            }
+                            Badge(
+                                containerColor = adminStatusColor
+                            ) {
+                                Text(onuAdministrativeStatus ?: "Unknown", color = Color.White)
+                            }
                         }
 
                         Divider()
@@ -571,29 +620,60 @@ fun RouterScreen(
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
                             }
                         } else {
-                            Row(
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .background(
-                                        color = if (onuStatus == "Online") Color(0x1F4CAF50) else Color(0x1FB71C1C),
+                                        color = Color(0x1F9C27B0),
                                         shape = RoundedCornerShape(8.dp)
                                     )
                                     .padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column {
-                                    Text(
-                                        text = "Router Status",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = onuStatus ?: "Unknown",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = if (onuStatus == "Online") Color(0xFF4CAF50) else Color(0xFFB71C1C),
-                                        fontWeight = FontWeight.Bold
-                                    )
+                                // Online/Offline Status
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Connection Status",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = onuStatus ?: "Unknown",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (onuStatus == "Online") Color(0xFF4CAF50) else Color(0xFFB71C1C),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                // Administrative Status
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "Device Status",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = onuAdministrativeStatus ?: "Unknown",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = when {
+                                                onuAdministrativeStatus?.lowercase() == "enabled" -> Color(0xFF2196F3)
+                                                onuAdministrativeStatus?.lowercase() == "disabled" -> Color(0xFFFF9800)
+                                                else -> Color(0xFF9E9E9E)
+                                            },
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -649,13 +729,43 @@ fun RouterScreen(
 
                         // Quick Actions Grid
                         if (onuList.isNotEmpty()) {
-                            val isOnuOnline = onuStatus == "Online"
+                            val isDeviceEnabled = onuAdministrativeStatus?.lowercase() == "enabled"
 
-                            Text(
-                                text = "Quick Actions",
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(bottom = 4.dp)
-                            )
+                            // Refresh Status Button
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Quick Actions",
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                                Button(
+                                    onClick = { fetchOnuDetailsWithStatus() },
+                                    enabled = !isRefreshing,
+                                    modifier = Modifier.height(32.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                                ) {
+                                    if (isRefreshing) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp,
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    } else {
+                                        Icon(
+                                            Icons.Default.Refresh,
+                                            contentDescription = "Refresh status",
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Refresh", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -665,8 +775,8 @@ fun RouterScreen(
                                 QuickActionCard(
                                     modifier = Modifier.weight(1f),
                                     title = "Device",
-                                    status = onuStatus ?: "Unknown",
-                                    isActive = isOnuOnline,
+                                    status = onuAdministrativeStatus ?: "Unknown",
+                                    isActive = isDeviceEnabled,
                                     icon = Icons.Default.Devices,
                                     isLoading = isEnablingDisabling,
                                     onClick = {
@@ -827,7 +937,7 @@ fun RouterScreen(
     OnuActionsDialog(
         showDialog = showOnuActionsDialog,
         onDismiss = { showOnuActionsDialog = false },
-        onuStatus = onuStatus,
+        onuStatus = onuAdministrativeStatus,
         onEnableClick = {
             onuStatusDialogType = "enable"
             showOnuActionsDialog = false
@@ -879,21 +989,23 @@ fun RouterScreen(
         selectedOnuIndex = selectedOnuIndex,
         onFetchWiFiStatus = { fetchOnuDetailsWithStatus() },
         onConfirm = {
+            // Close dialog immediately
+            showWiFiConfirmDialog = false
+
+            // Run operation in background
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
                     val result = if (wiFiStatusDialogType == "enable") {
-                        WiFiPortManager.enableWiFi(
+                        WiFiPortManager.enableAllWiFiPorts(
                             onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                            wifiPort = "wifi_0/1",
                             ssid = "NosteqWiFi",
                             password = "default123",
                             authMode = "WPA2"
                         )
                     } else {
-                        WiFiPortManager.disableWiFi(
-                            onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                            wifiPort = "wifi_0/1"
+                        WiFiPortManager.disableAllWiFiPorts(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: ""
                         )
                     }
 
@@ -902,8 +1014,6 @@ fun RouterScreen(
                             message = message,
                             duration = SnackbarDuration.Short
                         )
-                        showWiFiConfirmDialog = false
-                        kotlinx.coroutines.delay(500)
                         fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(
@@ -949,18 +1059,20 @@ fun RouterScreen(
         selectedOnuIndex = selectedOnuIndex,
         onFetchLanStatus = { fetchOnuDetailsWithStatus() },
         onConfirm = {
+            // Close dialog immediately
+            showLanConfirmDialog = false
+
+            // Run operation in background
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
                     val result = if (lanStatusDialogType == "enable") {
-                        LANManager.enableLan(
-                            onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                            ethernetPort = "eth_0/1"
+                        LANManager.enableAllLanPorts(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: ""
                         )
                     } else {
-                        LANManager.disableLan(
-                            onuExternalId = selectedOnu.uniqueExternalId ?: "",
-                            ethernetPort = "eth_0/1"
+                        LANManager.disableAllLanPorts(
+                            onuExternalId = selectedOnu.uniqueExternalId ?: ""
                         )
                     }
 
@@ -969,8 +1081,6 @@ fun RouterScreen(
                             message = message,
                             duration = SnackbarDuration.Short
                         )
-                        showLanConfirmDialog = false
-                        kotlinx.coroutines.delay(500)
                         fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(
@@ -1067,9 +1177,9 @@ fun RouterScreen(
                                             message = message,
                                             duration = SnackbarDuration.Short
                                         )
-                                        showWiFiDialog = false
-                                        ssid = ""
-                                        password = ""
+                                        showOnuConfirmDialog = false
+                                        refetchOnuList()
+                                        fetchOnuDetailsWithStatus()
                                     }.onFailure { error ->
                                         snackbarHostState.showSnackbar(
                                             message = "Error: ${error.message}",

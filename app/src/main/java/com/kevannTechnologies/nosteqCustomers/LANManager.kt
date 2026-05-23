@@ -62,4 +62,66 @@ object LANManager {
             Result.failure(e)
         }
     }
+
+    suspend fun enableAllLanPorts(
+        onuExternalId: String
+    ): Result<String> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val failedPorts = mutableListOf<Int>()
+
+            for (portNum in 1..4) {
+                val result = enableLan(
+                    onuExternalId = onuExternalId,
+                    ethernetPort = "eth_0/$portNum"
+                )
+
+                result.onFailure {
+                    failedPorts.add(portNum)
+                }
+            }
+
+            if (failedPorts.isEmpty()) {
+                Log.d("LANManager", "All LAN ports enabled successfully")
+                Result.success("LAN ports 1-4 enabled successfully")
+            } else {
+                val errorMsg = "LAN ports enabled, but failed on ports: $failedPorts"
+                Log.e("LANManager", errorMsg)
+                Result.success(errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e("LANManager", "Error enabling all LAN ports", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun disableAllLanPorts(
+        onuExternalId: String
+    ): Result<String> = withContext(Dispatchers.IO) {
+        return@withContext try {
+            val failedPorts = mutableListOf<Int>()
+
+            for (portNum in 1..4) {
+                val result = disableLan(
+                    onuExternalId = onuExternalId,
+                    ethernetPort = "eth_0/$portNum"
+                )
+
+                result.onFailure {
+                    failedPorts.add(portNum)
+                }
+            }
+
+            if (failedPorts.isEmpty()) {
+                Log.d("LANManager", "All LAN ports disabled successfully")
+                Result.success("LAN ports 1-4 disabled successfully")
+            } else {
+                val errorMsg = "LAN ports disabled, but failed on ports: $failedPorts"
+                Log.e("LANManager", errorMsg)
+                Result.success(errorMsg)
+            }
+        } catch (e: Exception) {
+            Log.e("LANManager", "Error disabling all LAN ports", e)
+            Result.failure(e)
+        }
+    }
 }

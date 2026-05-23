@@ -108,7 +108,6 @@ data class OnuDetails(
 
 data class PortInfo(
     val port_id: String? = null,
-    val admin_state: String? = null,
     @SerializedName("admin_state") val adminState: String? = null
 )
 

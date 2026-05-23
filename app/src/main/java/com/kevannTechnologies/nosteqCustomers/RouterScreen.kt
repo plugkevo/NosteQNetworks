@@ -271,6 +271,32 @@ fun RouterScreen(
     }
 
 
+    fun fetchOnuAdministrativeStatus() {
+        if (onuList.isEmpty()) return
+
+        scope.launch {
+            try {
+                val selectedOnu = onuList[selectedOnuIndex]
+                val response = SmartOltClient.apiService.getOnuAdministrativeStatus(
+                    onuExternalId = selectedOnu.uniqueExternalId ?: "",
+                    apiKey = SmartOltConfig.API_KEY
+                )
+
+                if (response.isSuccessful && response.body()?.status == true) {
+                    val adminStatus = response.body()?.administrativeStatus
+                    onuAdministrativeStatus = adminStatus
+                    AppLogger.logInfo("RouterScreen: Administrative status fetched", 
+                        mapOf("status" to (adminStatus ?: "unknown")) as Map<String, String>
+                    )
+                } else {
+                    AppLogger.logError("RouterScreen: Failed to fetch administrative status", Exception("HTTP ${response.code()}"))
+                }
+            } catch (e: Exception) {
+                AppLogger.logError("RouterScreen: Error fetching administrative status", e)
+            }
+        }
+    }
+
     fun fetchOnuDetailsWithStatus() {
         isRefreshing = true
         if (onuList.isEmpty()) {
@@ -295,21 +321,19 @@ fun RouterScreen(
                     
                     // Extract WiFi status from wifi_ports
                     val wifiPortStatus = onuDetailsData?.wifiPorts?.firstOrNull()?.adminState
-                    
-                    // Use administrative_status for ONU device status
-                    val onuAdminStatus = onuDetailsData?.administrativeStatus
 
-                    onuAdministrativeStatus = onuAdminStatus
                     wiFiAdministrativeStatus = wifiPortStatus ?: "Unknown"
                     lanAdministrativeStatus = lanPortStatus ?: "Unknown"
 
                     AppLogger.logInfo("RouterScreen: ONU details fetched",
                         mapOf(
-                            "onu" to (onuAdminStatus ?: "unknown"),
                             "wifi" to (wifiPortStatus ?: "unknown"),
                             "lan" to (lanPortStatus ?: "unknown")
                         ) as Map<String, String>
                     )
+                    
+                    // Fetch administrative status separately
+                    fetchOnuAdministrativeStatus()
                 } else {
                     AppLogger.logError("RouterScreen: Failed to fetch ONU details", Exception("HTTP ${response.code()}"))
                 }
@@ -359,12 +383,6 @@ fun RouterScreen(
                     showOnuConfirmDialog = false
                     refetchOnuList()
                     fetchOnuDetailsWithStatus()
-                    // Fetch ONU Online/Offline status
-                    val selectedOnu = onuList[selectedOnuIndex]
-                    val statusResult = onuStatusRepository.fetchOnuStatus(selectedOnu.uniqueExternalId ?: "")
-                    statusResult.onSuccess { status ->
-                        onuStatus = status
-                    }
                 }.onFailure { error ->
                     snackbarHostState.showSnackbar(
                         message = "Error: ${error.message}",
@@ -401,12 +419,6 @@ fun RouterScreen(
                     showOnuConfirmDialog = false
                     refetchOnuList()
                     fetchOnuDetailsWithStatus()
-                    // Fetch ONU Online/Offline status
-                    val selectedOnu = onuList[selectedOnuIndex]
-                    val statusResult = onuStatusRepository.fetchOnuStatus(selectedOnu.uniqueExternalId ?: "")
-                    statusResult.onSuccess { status ->
-                        onuStatus = status
-                    }
                 }.onFailure { error ->
                     snackbarHostState.showSnackbar(
                         message = "Error: ${error.message}",

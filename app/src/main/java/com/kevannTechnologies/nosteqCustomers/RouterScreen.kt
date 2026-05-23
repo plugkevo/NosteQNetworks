@@ -284,6 +284,10 @@ fun RouterScreen(
                     val onuDetailsData = response.body()?.onuDetails
                     currentOnuDetails = onuDetailsData
                     
+                    println("[v0] ONU Details Response: $onuDetailsData")
+                    println("[v0] Ethernet Ports: ${onuDetailsData?.ethernetPorts}")
+                    println("[v0] WiFi Ports: ${onuDetailsData?.wifiPorts}")
+                    
                     // Extract LAN status from ethernet_ports or admin_state
                     val lanPortStatus = onuDetailsData?.ethernetPorts?.firstOrNull()?.adminState 
                         ?: onuDetailsData?.ethernetPorts?.firstOrNull()?.admin_state
@@ -294,6 +298,9 @@ fun RouterScreen(
                     
                     // Use administrative_status for ONU device status
                     val onuAdminStatus = onuDetailsData?.administrativeStatus
+
+                    println("[v0] LAN Status extracted: $lanPortStatus")
+                    println("[v0] WiFi Status extracted: $wifiPortStatus")
 
                     onuStatus = onuAdminStatus
                     wiFiAdministrativeStatus = wifiPortStatus ?: "Unknown"
@@ -307,9 +314,12 @@ fun RouterScreen(
                         ) as Map<String, String>
                     )
                 } else {
+                    println("[v0] API Response unsuccessful or status is false")
                     AppLogger.logError("RouterScreen: Failed to fetch ONU details", Exception("HTTP ${response.code()}"))
                 }
             } catch (e: Exception) {
+                println("[v0] Exception in fetchOnuDetailsWithStatus: ${e.message}")
+                e.printStackTrace()
                 AppLogger.logError("RouterScreen: Error fetching ONU details", e)
             }
         }

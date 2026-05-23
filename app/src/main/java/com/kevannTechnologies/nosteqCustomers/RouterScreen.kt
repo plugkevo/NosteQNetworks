@@ -299,13 +299,11 @@ fun RouterScreen(
                     println("[v0] Ethernet Ports: ${onuDetailsData?.ethernetPorts}")
                     println("[v0] WiFi Ports: ${onuDetailsData?.wifiPorts}")
                     
-                    // Extract LAN status from ethernet_ports or admin_state
-                    val lanPortStatus = onuDetailsData?.ethernetPorts?.firstOrNull()?.adminState 
-                        ?: onuDetailsData?.ethernetPorts?.firstOrNull()?.admin_state
+                    // Extract LAN status from ethernet_ports
+                    val lanPortStatus = onuDetailsData?.ethernetPorts?.firstOrNull()?.adminState
                     
-                    // Extract WiFi status from wifi_ports or admin_state
-                    val wifiPortStatus = onuDetailsData?.wifiPorts?.firstOrNull()?.adminState 
-                        ?: onuDetailsData?.wifiPorts?.firstOrNull()?.admin_state
+                    // Extract WiFi status from wifi_ports
+                    val wifiPortStatus = onuDetailsData?.wifiPorts?.firstOrNull()?.adminState
                     
                     // Use administrative_status for ONU device status
                     val onuAdminStatus = onuDetailsData?.administrativeStatus

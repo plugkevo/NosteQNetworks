@@ -927,6 +927,10 @@ fun RouterScreen(
         selectedOnuIndex = selectedOnuIndex,
         onFetchWiFiStatus = { fetchOnuDetailsWithStatus() },
         onConfirm = {
+            // Close dialog immediately
+            showWiFiConfirmDialog = false
+            
+            // Run operation in background
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
@@ -948,7 +952,6 @@ fun RouterScreen(
                             message = message,
                             duration = SnackbarDuration.Short
                         )
-                        showWiFiConfirmDialog = false
                         fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(
@@ -994,6 +997,10 @@ fun RouterScreen(
         selectedOnuIndex = selectedOnuIndex,
         onFetchLanStatus = { fetchOnuDetailsWithStatus() },
         onConfirm = {
+            // Close dialog immediately
+            showLanConfirmDialog = false
+            
+            // Run operation in background
             scope.launch {
                 try {
                     val selectedOnu = onuList[selectedOnuIndex]
@@ -1012,7 +1019,6 @@ fun RouterScreen(
                             message = message,
                             duration = SnackbarDuration.Short
                         )
-                        showLanConfirmDialog = false
                         fetchOnuDetailsWithStatus()
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(

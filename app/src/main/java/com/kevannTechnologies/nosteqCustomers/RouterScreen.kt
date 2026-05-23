@@ -357,8 +357,14 @@ fun RouterScreen(
                         duration = SnackbarDuration.Short
                     )
                     showOnuConfirmDialog = false
-                    kotlinx.coroutines.delay(500)
                     refetchOnuList()
+                    fetchOnuDetailsWithStatus()
+                    // Fetch ONU Online/Offline status
+                    val selectedOnu = onuList[selectedOnuIndex]
+                    val statusResult = onuStatusRepository.fetchOnuStatus(selectedOnu.uniqueExternalId ?: "")
+                    statusResult.onSuccess { status ->
+                        onuStatus = status
+                    }
                 }.onFailure { error ->
                     snackbarHostState.showSnackbar(
                         message = "Error: ${error.message}",
@@ -395,6 +401,12 @@ fun RouterScreen(
                     showOnuConfirmDialog = false
                     refetchOnuList()
                     fetchOnuDetailsWithStatus()
+                    // Fetch ONU Online/Offline status
+                    val selectedOnu = onuList[selectedOnuIndex]
+                    val statusResult = onuStatusRepository.fetchOnuStatus(selectedOnu.uniqueExternalId ?: "")
+                    statusResult.onSuccess { status ->
+                        onuStatus = status
+                    }
                 }.onFailure { error ->
                     snackbarHostState.showSnackbar(
                         message = "Error: ${error.message}",

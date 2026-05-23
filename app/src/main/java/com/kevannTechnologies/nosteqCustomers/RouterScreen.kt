@@ -382,7 +382,8 @@ fun RouterScreen(
                     )
                     showOnuConfirmDialog = false
                     refetchOnuList()
-                    fetchOnuDetailsWithStatus()
+                    // Immediately fetch administrative status
+                    fetchOnuAdministrativeStatus()
                 }.onFailure { error ->
                     snackbarHostState.showSnackbar(
                         message = "Error: ${error.message}",
@@ -418,7 +419,8 @@ fun RouterScreen(
                     )
                     showOnuConfirmDialog = false
                     refetchOnuList()
-                    fetchOnuDetailsWithStatus()
+                    // Immediately fetch administrative status
+                    fetchOnuAdministrativeStatus()
                 }.onFailure { error ->
                     snackbarHostState.showSnackbar(
                         message = "Error: ${error.message}",

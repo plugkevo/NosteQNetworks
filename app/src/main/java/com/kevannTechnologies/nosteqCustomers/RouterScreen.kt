@@ -724,7 +724,7 @@ fun RouterScreen(
 
                         // Quick Actions Grid
                         if (onuList.isNotEmpty()) {
-                            val isOnuOnline = onuStatus == "Online"
+                            val isDeviceEnabled = onuAdministrativeStatus?.lowercase() == "enabled"
 
                             // Refresh Status Button
                             Row(
@@ -770,8 +770,8 @@ fun RouterScreen(
                                 QuickActionCard(
                                     modifier = Modifier.weight(1f),
                                     title = "Device",
-                                    status = onuStatus ?: "Unknown",
-                                    isActive = isOnuOnline,
+                                    status = onuAdministrativeStatus ?: "Unknown",
+                                    isActive = isDeviceEnabled,
                                     icon = Icons.Default.Devices,
                                     isLoading = isEnablingDisabling,
                                     onClick = {

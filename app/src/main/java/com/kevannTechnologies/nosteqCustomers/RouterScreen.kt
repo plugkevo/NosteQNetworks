@@ -270,16 +270,27 @@ fun RouterScreen(
 
 
     fun fetchOnuDetailsWithStatus() {
-        if (onuList.isEmpty()) return
+        println("[v0] fetchOnuDetailsWithStatus called!")
+        if (onuList.isEmpty()) {
+            println("[v0] ONU list is empty, returning")
+            return
+        }
 
         scope.launch {
             try {
+                println("[v0] Starting ONU details fetch")
                 val selectedOnu = onuList[selectedOnuIndex]
+                println("[v0] Selected ONU: ${selectedOnu.uniqueExternalId}")
                 val response = SmartOltClient.apiService.getOnuDetails(
                     onuExternalId = selectedOnu.uniqueExternalId ?: "",
                     apiKey = SmartOltConfig.API_KEY
                 )
 
+                println("[v0] API call completed, response code: ${response.code()}")
+                println("[v0] Response successful: ${response.isSuccessful}")
+                println("[v0] Response body raw: ${response.body()}")
+                println("[v0] Response error body: ${response.errorBody()?.string()}")
+                
                 if (response.isSuccessful && response.body()?.status == true) {
                     val onuDetailsData = response.body()?.onuDetails
                     currentOnuDetails = onuDetailsData
@@ -314,7 +325,8 @@ fun RouterScreen(
                         ) as Map<String, String>
                     )
                 } else {
-                    println("[v0] API Response unsuccessful or status is false")
+                    println("[v0] API Response unsuccessful or status is false. Status: ${response.body()?.status}")
+                    println("[v0] Response code: ${response.code()}")
                     AppLogger.logError("RouterScreen: Failed to fetch ONU details", Exception("HTTP ${response.code()}"))
                 }
             } catch (e: Exception) {

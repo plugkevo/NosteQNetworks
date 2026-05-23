@@ -393,8 +393,8 @@ fun RouterScreen(
                         duration = SnackbarDuration.Short
                     )
                     showOnuConfirmDialog = false
-                    kotlinx.coroutines.delay(500)
                     refetchOnuList()
+                    fetchOnuDetailsWithStatus()
                 }.onFailure { error ->
                     snackbarHostState.showSnackbar(
                         message = "Error: ${error.message}",
@@ -1096,20 +1096,20 @@ fun RouterScreen(
                                         newPassword = password
                                     )
 
-                                    result.onSuccess { message ->
-                                        snackbarHostState.showSnackbar(
-                                            message = message,
-                                            duration = SnackbarDuration.Short
-                                        )
-                                        showWiFiDialog = false
-                                        ssid = ""
-                                        password = ""
-                                    }.onFailure { error ->
-                                        snackbarHostState.showSnackbar(
-                                            message = "Error: ${error.message}",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                    }
+                result.onSuccess { message ->
+                    snackbarHostState.showSnackbar(
+                        message = message,
+                        duration = SnackbarDuration.Short
+                    )
+                    showOnuConfirmDialog = false
+                    refetchOnuList()
+                    fetchOnuDetailsWithStatus()
+                }.onFailure { error ->
+                    snackbarHostState.showSnackbar(
+                        message = "Error: ${error.message}",
+                        duration = SnackbarDuration.Short
+                    )
+                }
                                 } catch (e: Exception) {
                                     snackbarHostState.showSnackbar(
                                         message = "Error: ${e.message}",

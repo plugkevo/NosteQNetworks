@@ -91,8 +91,6 @@ fun PackagesScreen() {
     var selectedPlan by remember { mutableStateOf<Plan?>(null) }
     var showPaymentDialog by remember { mutableStateOf(false) }
     var isProcessing by remember { mutableStateOf(false) }
-    var customPhoneNumber by remember { mutableStateOf("") }
-    var useCustomPhone by remember { mutableStateOf(false) }
     var showConfigWarning by remember { mutableStateOf(false) }
     var paymentStatusType by remember { mutableStateOf<String?>(null) }
     var isVerifyingPayment by remember { mutableStateOf(false) }
@@ -108,8 +106,6 @@ fun PackagesScreen() {
                 paymentStatusType = statusType
                 isProcessing = processing
                 isVerifyingPayment = verifying
-                useCustomPhone = customPhone
-                customPhoneNumber = phoneNum
                 pendingCheckoutId = checkoutId
             }
         )
@@ -154,37 +150,27 @@ fun PackagesScreen() {
             selectedPlan = selectedPlan!!,
             userDetail = userDetail,
             currency = currency,
-            useCustomPhone = useCustomPhone,
-            customPhoneNumber = customPhoneNumber,
             numberOfMonths = numberOfMonths,
             isProcessing = isProcessing,
-            onUseCustomPhoneChange = { useCustomPhone = it },
-            onPhoneNumberChange = { customPhoneNumber = it },
             onNumberOfMonthsChange = { numberOfMonths = it },
             onDismiss = {
                 showPaymentDialog = false
-                useCustomPhone = false
-                customPhoneNumber = ""
                 numberOfMonths = 1
             },
             onConfirmPayment = {
-                // Capture values before resetting
-                val useCustomPhoneValue = useCustomPhone
-                val customPhoneValue = customPhoneNumber
                 val numberOfMonthsValue = numberOfMonths
 
                 // Close the dialog immediately so user can see status messages
                 showPaymentDialog = false
-                useCustomPhone = false
-                customPhoneNumber = ""
                 numberOfMonths = 1
 
                 // Process payment in background with captured values
+                // Always use the user's own phone number (useCustomPhone = false)
                 packagesActivity.processPayment(
                     selectedPlan = selectedPlan,
                     userDetail = userDetail,
-                    useCustomPhone = useCustomPhoneValue,
-                    customPhoneNumber = customPhoneValue,
+                    useCustomPhone = false,
+                    customPhoneNumber = "",
                     numberOfMonths = numberOfMonthsValue,
                     initialRechargeCount = initialRechargeCount
                 ) { _, _, _, _ -> }
@@ -214,12 +200,8 @@ fun PaymentDialog(
     selectedPlan: Plan,
     userDetail: UserDetail?,
     currency: String,
-    useCustomPhone: Boolean,
-    customPhoneNumber: String,
     numberOfMonths: Int,
     isProcessing: Boolean,
-    onUseCustomPhoneChange: (Boolean) -> Unit,
-    onPhoneNumberChange: (String) -> Unit,
     onNumberOfMonthsChange: (Int) -> Unit,
     onDismiss: () -> Unit,
     onConfirmPayment: () -> Unit
@@ -322,36 +304,6 @@ fun PaymentDialog(
                     Text(
                         text = "My number: ${userDetail?.userinfo?.phone ?: "N/A"}",
                         modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    RadioButton(
-                        selected = useCustomPhone,
-                        onClick = { onUseCustomPhoneChange(true) }
-                    )
-                    Text(
-                        text = "Different number",
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-
-                if (useCustomPhone) {
-                    OutlinedTextField(
-                        value = customPhoneNumber,
-                        onValueChange = onPhoneNumberChange,
-                        label = { Text("Phone Number") },
-                        placeholder = { Text("254712345678") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    Text(
-                        text = "Format: 254XXXXXXXXX",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 

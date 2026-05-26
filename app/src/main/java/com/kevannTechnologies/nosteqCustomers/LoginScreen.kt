@@ -375,7 +375,7 @@ fun LoginScreen(
 
                 // Version Display
                 Text(
-                    text = "v${BuildConfig.VERSION_NAME}",
+                    text = "v${AppVersion.VERSION}",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.6f),
                     modifier = Modifier.align(Alignment.CenterHorizontally)

@@ -370,19 +370,19 @@ fun LoginScreen(
                     onDismiss = { showSupportDialog = false },
                     onSendViaWhatsApp = onSendWhatsAppMessage
                 )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Version Display
+                Text(
+                    text = "v${BuildConfig.VERSION_NAME}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
             }
 
             Spacer(modifier = Modifier.weight(1f))
-
-            // Version Display at Bottom Center
-            Text(
-                text = "v${BuildConfig.VERSION_NAME}",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.6f),
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(bottom = 16.dp)
-            )
         }
     }
 }

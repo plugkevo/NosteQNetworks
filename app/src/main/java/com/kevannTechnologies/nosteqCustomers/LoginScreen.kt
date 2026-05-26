@@ -147,7 +147,7 @@ fun LoginScreen(
                 .fillMaxSize()
                 .imePadding()
                 .verticalScroll(scrollState)
-                .padding(24.dp),
+                .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 64.dp), // Extra bottom padding for version text
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -370,19 +370,18 @@ fun LoginScreen(
                     onDismiss = { showSupportDialog = false },
                     onSendViaWhatsApp = onSendWhatsAppMessage
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Version Display
-                Text(
-                    text = "v${AppVersion.VERSION}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.6f),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
             }
-
-            Spacer(modifier = Modifier.weight(1f))
         }
+
+        // --- Absolute Bottom Version Display ---
+        Text(
+            text = "v${AppVersion.VERSION}",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color.White.copy(alpha = 0.6f),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding() // Ensures safety over modern gesture navigation bars
+                .padding(bottom = 16.dp)
+        )
     }
 }

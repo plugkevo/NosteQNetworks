@@ -55,7 +55,6 @@ interface ApiService {
         @Body request: ChangePasswordRequest
     ): Call<ChangePasswordResponse>
 
-    @FormUrlEncoded
     @GET("api/invoice")
     fun getInvoices(
         @Header("Authorization") token: String,

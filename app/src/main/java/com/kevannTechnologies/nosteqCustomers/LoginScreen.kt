@@ -17,12 +17,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.AutofillType
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -30,7 +33,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.autofill.inline.UiThreadExecutor
 
 @Composable
 fun SupportDialog(
@@ -50,9 +52,9 @@ fun SupportDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = if (dialogType == "forgot_password") 
-                    "Reset Password" 
-                else 
+                text = if (dialogType == "forgot_password")
+                    "Reset Password"
+                else
                     "Contact Support"
             )
         },
@@ -68,11 +70,11 @@ fun SupportDialog(
                         "Please enter your username so our support team can assist you:",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                
+
                 OutlinedTextField(
                     value = inputUsername,
                     onValueChange = { inputUsername = it },
-                    label = { Text("Username") },
+                    label = { Text("Phone Number") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(
@@ -186,7 +188,7 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                // Username Field - white/transparent style
+                // --- Username Field ---
                 OutlinedTextField(
                     value = username,
                     onValueChange = onUsernameChange,
@@ -194,10 +196,10 @@ fun LoginScreen(
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .autofill(
-                            autofillTypes = listOf(AutofillType.Username),
-                            onFill = onUsernameChange
-                        ),
+                        .semantics {
+                            // Wraps AutofillType inside ContentType to match the expected type
+                            contentType = ContentType(AutofillType.Username.toString())
+                        },
                     enabled = !isLoading,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Text,
@@ -219,7 +221,7 @@ fun LoginScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Password Field
+                // --- Password Field ---
                 OutlinedTextField(
                     value = password,
                     onValueChange = onPasswordChange,
@@ -227,15 +229,12 @@ fun LoginScreen(
                     singleLine = true,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .autofill(
-                            autofillTypes = listOf(AutofillType.Password),
-                            onFill = onPasswordChange
-                        ),
+                        .semantics {
+                            // Wraps AutofillType inside ContentType to match the expected type
+                            contentType = ContentType(AutofillType.Password.toString())
+                        },
                     enabled = !isLoading,
-                    visualTransformation = if (passwordVisible)
-                        VisualTransformation.None
-                    else
-                        PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Password,
                         imeAction = ImeAction.Done

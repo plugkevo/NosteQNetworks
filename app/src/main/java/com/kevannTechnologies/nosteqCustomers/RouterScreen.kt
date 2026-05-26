@@ -792,7 +792,14 @@ fun RouterScreen(
                                     isActive = wiFiAdministrativeStatus?.lowercase() == "enabled",
                                     icon = Icons.Default.Wifi,
                                     onClick = {
-                                        showWiFiActionsDialog = true
+                                        // Feature under maintenance - show toast instead
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                message = "WiFi feature under maintenance",
+                                                duration = SnackbarDuration.Short
+                                            )
+                                        }
+                                        // showWiFiActionsDialog = true
                                     }
                                 )
 
